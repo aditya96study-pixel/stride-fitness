@@ -1,0 +1,73 @@
+name: Build APK
+
+# Runs on every push, and can also be started by hand from the Actions tab.
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Assemble debug and release APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the project
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Make the wrapper executable
+        run: chmod +x gradlew
+
+      - name: Build
+        run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
+
+      - name: Rename the APKs
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk out/stride-debug.apk
+          cp app/build/outputs/apk/release/app-release.apk out/stride.apk
+          ls -la out
+
+      - name: Upload the APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: stride-apk
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      # The APKs are also published to a standalone `apk-build` branch so they
+      # can be fetched over plain git, without the Actions artifact API.
+      - name: Publish the APKs to the apk-build branch
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          work=$(mktemp -d)
+          cp out/stride.apk out/stride-debug.apk "$work"/
+          cd "$work"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -qb apk-build
+          git add -A
+          git commit -qm "Stride APKs built from ${GITHUB_SHA}"
+          git push -q --force "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apk-build
