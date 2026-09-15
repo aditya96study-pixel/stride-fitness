@@ -1,0 +1,56 @@
+name: Build APK
+
+# Runs on every push, and can also be started by hand from the Actions tab.
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Assemble debug and release APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the project
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Make the wrapper executable
+        run: chmod +x gradlew
+
+      - name: Build
+        run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
+
+      - name: Rename the APKs
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk out/stride-debug.apk
+          cp app/build/outputs/apk/release/app-release.apk out/stride.apk
+          ls -la out
+
+      - name: Upload the APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: stride-apk
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 90
