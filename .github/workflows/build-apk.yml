@@ -6,6 +6,9 @@ on:
     branches: ["**"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Assemble debug and release APKs
@@ -51,3 +54,20 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
           retention-days: 90
+
+      # The APKs are also published to a standalone `apk-build` branch so they
+      # can be fetched over plain git, without the Actions artifact API.
+      - name: Publish the APKs to the apk-build branch
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          work=$(mktemp -d)
+          cp out/stride.apk out/stride-debug.apk "$work"/
+          cd "$work"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -qb apk-build
+          git add -A
+          git commit -qm "Stride APKs built from ${GITHUB_SHA}"
+          git push -q --force "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apk-build
