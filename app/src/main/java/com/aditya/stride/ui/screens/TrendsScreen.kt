@@ -1,13 +1,24 @@
 package com.aditya.stride.ui.screens
 
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aditya.stride.data.SessionFilter
+import com.aditya.stride.ui.components.ActivityFilterRow
 import com.aditya.stride.ui.components.ChartGuide
 import com.aditya.stride.ui.components.ChartSeries
+import com.aditya.stride.ui.components.activitySeries
+import com.aditya.stride.ui.components.describe
 import com.aditya.stride.ui.components.Hint
 import com.aditya.stride.ui.components.ScreenFrame
 import com.aditya.stride.ui.components.SectionCard
@@ -29,7 +40,12 @@ fun TrendsScreen(onOpenSettings: () -> Unit) {
     val calIn by vm.calInDaily.collectAsStateWithLifecycle()
     val calOut by vm.calOutDaily.collectAsStateWithLifecycle()
     val waterDaily by vm.waterDaily.collectAsStateWithLifecycle()
-    val distanceDaily by vm.distanceDaily.collectAsStateWithLifecycle()
+    val sessions by vm.sessions.collectAsStateWithLifecycle()
+
+    // Per-screen, deliberately: the filter on Trends and the one on the history list are
+    // independent, which is more useful than pretending they are the same control.
+    var filter by remember { mutableStateOf(SessionFilter()) }
+    val activity = activitySeries(sessions, filter)
 
     ScreenFrame(
         title = "Trends",
@@ -93,18 +109,33 @@ fun TrendsScreen(onOpenSettings: () -> Unit) {
         }
 
         item {
-            SectionCard(title = "Running", subtitle = "Kilometres per day") {
-                ZoomableTimeChart(
-                    series = listOf(
-                        ChartSeries("Distance", seriesPalette.distance, distanceDaily, SeriesKind.BAR)
-                    ),
-                    valueLabel = { it.twoDecimals() },
-                    unitSuffix = " km",
-                    zeroBased = true,
-                    chartHeight = 280.dp,
-                    defaultWindowDays = 30f,
-                    emptyMessage = "No runs recorded yet",
-                )
+            SectionCard(
+                title = "Distance by activity",
+                subtitle = filter.describe(),
+            ) {
+                Column {
+                    ActivityFilterRow(filter = filter, onChange = { filter = it })
+                    Spacer(Modifier.height(12.dp))
+                    ZoomableTimeChart(
+                        series = activity,
+                        valueLabel = { it.twoDecimals() },
+                        unitSuffix = " km",
+                        zeroBased = true,
+                        chartHeight = 300.dp,
+                        defaultWindowDays = 30f,
+                        emptyMessage = if (sessions.isEmpty()) {
+                            "No sessions recorded yet"
+                        } else {
+                            "Nothing matches those filters"
+                        },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Hint(
+                        "Runs, walks and treadmill sessions are separate series, never added " +
+                            "together. The distance chips narrow to efforts within about 2% of " +
+                            "that distance, so like efforts sit side by side."
+                    )
+                }
             }
         }
 

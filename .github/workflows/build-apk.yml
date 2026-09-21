@@ -65,10 +65,21 @@ jobs:
       # The migration and calorie tests are the only automated coverage, so a failure
       # here stops the APK from being published rather than being reported alongside it.
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --no-daemon | tee build.log
 
       - name: Build
-        run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleDebug assembleRelease --no-daemon | tee -a build.log
+
+      # Gradle prints compiler diagnostics thousands of lines above its own stack trace,
+      # so on failure they are off the end of anything but a full log download. Repeat
+      # them last, where `tail` will find them.
+      - name: Repeat the compiler errors
+        if: failure()
+        run: |
+          echo "----- compiler diagnostics -----"
+          grep -E "^(e|w): |FAILED|Tests? .*failed|^[[:space:]]+[A-Za-z]+Test > " build.log \
+            | sed 's#file:///home/runner/work/stride-fitness/stride-fitness/##' \
+            | tail -n 60 || echo "(none found in build.log)"
 
       - name: Rename the APKs
         run: |

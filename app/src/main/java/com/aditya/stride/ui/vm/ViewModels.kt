@@ -3,6 +3,7 @@ package com.aditya.stride.ui.vm
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.aditya.stride.data.ActivityType
 import com.aditya.stride.data.DailyValue
 import com.aditya.stride.data.ExerciseEntry
 import com.aditya.stride.data.MealEntry
@@ -16,6 +17,7 @@ import com.aditya.stride.data.WaterEntry
 import com.aditya.stride.data.WeightEntry
 import com.aditya.stride.data.today
 import com.aditya.stride.notify.ReminderScheduler
+import com.aditya.stride.tracking.CalorieCalc
 import com.aditya.stride.ui.components.ChartPoint
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -23,10 +25,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 fun List<DailyValue>.toChartPoints(): List<ChartPoint> =
     map { ChartPoint(it.epochDay, it.value) }
@@ -88,8 +92,15 @@ class DashboardViewModel(app: Application) : StrideViewModel(app) {
     val waterDaily: StateFlow<List<ChartPoint>> =
         repo.water.observeDaily().map { it.toChartPoints() }.state(emptyList())
 
+    /**
+     * Merged across all three activities, which is what the Today screen shows. The
+     * Trends chart deliberately does not use this — it builds one series per activity.
+     */
     val distanceDaily: StateFlow<List<ChartPoint>> =
         repo.runs.observeDailyDistanceKm().map { it.toChartPoints() }.state(emptyList())
+
+    /** Whole sessions, for the filtered per-activity chart. */
+    val sessions: StateFlow<List<RunSession>> = repo.runs.observeAll().state(emptyList())
 }
 
 class WeightViewModel(app: Application) : StrideViewModel(app) {
@@ -201,6 +212,30 @@ class RunHistoryViewModel(app: Application) : StrideViewModel(app) {
 
     fun setNote(session: RunSession, note: String) = viewModelScope.launch {
         repo.runs.updateSession(session.copy(note = note.takeIf { it.isNotBlank() }))
+    }
+
+    /**
+     * Re-categorising a past session moves it between histories and chart series. It
+     * recomputes [RunSession.kcalAuto] for the new activity, but only overwrites the
+     * counted figure if the user had not already overridden it.
+     */
+    fun setActivityType(session: RunSession, type: ActivityType) = viewModelScope.launch {
+        val weightKg = repo.effectiveWeightKg(repo.profile.first())
+        val auto = CalorieCalc.runKcal(
+            distanceM = session.distanceM,
+            movingSeconds = session.movingTimeMs / 1000.0,
+            elevationGainM = session.elevationGainM,
+            weightKg = weightKg,
+            mode = CalorieCalc.modeFor(type),
+        ).roundToInt()
+        val overridden = session.kcal != session.kcalAuto
+        repo.runs.updateSession(
+            session.copy(
+                activityType = type.name,
+                kcalAuto = auto,
+                kcal = if (overridden) session.kcal else auto,
+            )
+        )
     }
 }
 

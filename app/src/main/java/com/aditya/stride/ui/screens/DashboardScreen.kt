@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aditya.stride.data.today
+import com.aditya.stride.data.type
 import com.aditya.stride.ui.asClock
 import com.aditya.stride.ui.asInt
 import com.aditya.stride.ui.asTime
@@ -280,7 +281,10 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
         }
 
         item {
-            SectionCard(title = "Distance run", subtitle = "Kilometres per day") {
+            SectionCard(
+                title = "Distance",
+                subtitle = "Kilometres per day, all activities together",
+            ) {
                 ZoomableTimeChart(
                     series = listOf(
                         ChartSeries("Distance", seriesPalette.distance, distanceDaily, SeriesKind.BAR)
@@ -289,7 +293,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                     unitSuffix = " km",
                     zeroBased = true,
                     defaultWindowDays = 21f,
-                    emptyMessage = "No runs recorded yet",
+                    emptyMessage = "Nothing recorded yet",
                 )
             }
         }
@@ -300,10 +304,11 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                     Column {
                         runs.forEach { run ->
                             com.aditya.stride.ui.components.EntryRow(
-                                title = "Run · ${(run.distanceM / 1000.0).twoDecimals()} km",
+                                title = run.type.label + " · " +
+                                    (run.distanceM / 1000.0).twoDecimals() + " km",
                                 subtitle = run.startTime.asTime() + "  ·  " + run.movingTimeMs.asClock(),
                                 trailing = "${run.kcal} kcal",
-                                accent = seriesPalette.distance,
+                                accent = colourFor(run.type),
                             )
                         }
                         exercise.forEach { entry ->

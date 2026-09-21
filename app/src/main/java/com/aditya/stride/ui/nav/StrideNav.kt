@@ -37,6 +37,7 @@ import com.aditya.stride.ui.screens.RunDetailScreen
 import com.aditya.stride.ui.screens.RunScreen
 import com.aditya.stride.ui.screens.RunsListScreen
 import com.aditya.stride.ui.screens.SettingsScreen
+import com.aditya.stride.ui.screens.TreadmillScreen
 import com.aditya.stride.ui.screens.TrendsScreen
 import com.aditya.stride.ui.screens.WaterScreen
 import com.aditya.stride.ui.screens.WeightScreen

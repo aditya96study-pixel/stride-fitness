@@ -25,10 +25,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aditya.stride.data.ActivityType
 import com.aditya.stride.data.RunPoint
+import com.aditya.stride.data.type
 import com.aditya.stride.tracking.formatPace
 import com.aditya.stride.ui.asClock
 import com.aditya.stride.ui.asDateTime
+import com.aditya.stride.ui.components.Chip
 import com.aditya.stride.ui.components.Hint
 import com.aditya.stride.ui.components.NumberField
 import com.aditya.stride.ui.components.RouteMap
@@ -65,18 +68,21 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
 
     val run = session
     if (run == null) {
-        ScreenFrame(title = "Run", onBack = onBack) {
-            item { Hint("This run is no longer available.") }
+        ScreenFrame(title = "Session", onBack = onBack) {
+            item { Hint("This session is no longer available.") }
         }
         return
     }
+
+    val type = run.type
+    val accent = colourFor(type)
 
     val splits = remember(points) { splitsFrom(points) }
     val avgPace = if (run.distanceM > 50) (run.movingTimeMs / 1000.0) / (run.distanceM / 1000.0)
     else null
 
     ScreenFrame(
-        title = (run.distanceM / 1000.0).twoDecimals() + " km",
+        title = type.label + "  ·  " + (run.distanceM / 1000.0).twoDecimals() + " km",
         subtitle = run.startTime.asDateTime(),
         onBack = onBack,
     ) {
@@ -86,7 +92,7 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                     RouteMap(
                         latitudes = points.map { it.lat },
                         longitudes = points.map { it.lon },
-                        lineColor = seriesPalette.distance,
+                        lineColor = accent,
                     )
                 }
             }
@@ -100,19 +106,19 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                             "Distance",
                             (run.distanceM / 1000.0).twoDecimals(),
                             "km",
-                            seriesPalette.distance,
+                            accent,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Moving",
                             run.movingTimeMs.asClock(),
-                            accent = seriesPalette.distance,
+                            accent = accent,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Elapsed",
                             run.elapsedTimeMs.asClock(),
-                            accent = seriesPalette.distance,
+                            accent = accent,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -122,21 +128,21 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                             "Avg pace",
                             avgPace?.let { formatPace(it) } ?: "--:--",
                             "/km",
-                            seriesPalette.distance,
+                            accent,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Avg speed",
                             (run.avgSpeedMps * 3.6).oneDecimal(),
                             "km/h",
-                            seriesPalette.distance,
+                            accent,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Top speed",
                             (run.maxSpeedMps * 3.6).oneDecimal(),
                             "km/h",
-                            seriesPalette.distance,
+                            accent,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -147,6 +153,11 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                             run.elevationGainM.roundToInt().toString(),
                             "m",
                             seriesPalette.calOut,
+                            caption = if (run.inclinePercent > 0.0) {
+                                "${run.inclinePercent.oneDecimal()}% incline"
+                            } else {
+                                null
+                            },
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
@@ -154,9 +165,12 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                             run.kcal.toString(),
                             "kcal",
                             seriesPalette.calOut,
-                            caption = if (run.kcal != run.kcalAuto) {
-                                "edited from ${run.kcalAuto}"
-                            } else "from pace, weight and climb",
+                            caption = when {
+                                run.kcal != run.kcalAuto -> "edited from ${run.kcalAuto}"
+                                type == ActivityType.TREADMILL ->
+                                    "from speed, weight and incline"
+                                else -> "from pace, weight and climb"
+                            },
                             modifier = Modifier.weight(2f),
                         )
                     }
@@ -198,6 +212,31 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
         }
 
         item {
+            SectionCard(
+                title = "Activity",
+                subtitle = "Change this if it was recorded as the wrong thing",
+            ) {
+                Column {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActivityType.entries.forEach { option ->
+                            Chip(
+                                label = option.label,
+                                onClick = { vm.setActivityType(run, option) },
+                                selected = type == option,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Hint(
+                        "Moving a session between activities moves it in your history and on " +
+                            "the Trends chart, and re-estimates its calories with the matching " +
+                            "equation. A figure you typed yourself is left alone."
+                    )
+                }
+            }
+        }
+
+        item {
             SectionCard(title = "Adjust") {
                 Column {
                     NumberField(
@@ -228,13 +267,21 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                         OutlinedButton(
                             onClick = { confirmDelete = true },
                             modifier = Modifier.weight(1f),
-                        ) { Text("Delete run", color = StatusCritical) }
+                        ) { Text("Delete", color = StatusCritical) }
                     }
                     Spacer(Modifier.height(8.dp))
                     Hint(
-                        "The calorie figure comes from the ACSM running equation using your " +
-                            "pace, your logged weight and the climb. Override it if you prefer " +
-                            "your watch's number."
+                        when (type) {
+                            ActivityType.WALK ->
+                                "Estimated with the ACSM walking equation, from your pace, " +
+                                    "logged weight and climb."
+                            ActivityType.TREADMILL ->
+                                "Estimated from speed, weight and incline. A belt has no air " +
+                                    "resistance, so it reads slightly high."
+                            ActivityType.RUN ->
+                                "Estimated with the ACSM running equation, from your pace, " +
+                                    "logged weight and climb."
+                        } + " Override it if you prefer your watch's number."
                     )
                 }
             }
@@ -244,8 +291,8 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete this run?") },
-            text = { Text("The route and all its data will be removed. This cannot be undone.") },
+            title = { Text("Delete this ${type.label.lowercase()}?") },
+            text = { Text("Every figure for this session will be removed. This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false

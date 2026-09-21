@@ -66,8 +66,8 @@ fun LogHubScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                         seriesPalette.calOut,
                     ) { onOpen(Routes.EXERCISE) }
                     HubRow(
-                        "Runs",
-                        "Past runs, splits and routes",
+                        "Sessions",
+                        "Runs, walks and treadmill work, with splits and routes",
                         Icons.Rounded.DirectionsRun,
                         seriesPalette.distance,
                     ) { onOpen(Routes.RUNS_LIST) }
