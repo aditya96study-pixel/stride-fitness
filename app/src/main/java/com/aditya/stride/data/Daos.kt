@@ -39,6 +39,9 @@ interface WeightDao {
 
     @Query("SELECT * FROM weight_entries ORDER BY timestamp ASC")
     suspend fun allForExport(): List<WeightEntry>
+
+    @Query("DELETE FROM weight_entries")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -71,6 +74,9 @@ interface MealDao {
 
     @Query("SELECT * FROM meal_entries ORDER BY timestamp ASC")
     suspend fun allForExport(): List<MealEntry>
+
+    @Query("DELETE FROM meal_entries")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -96,6 +102,9 @@ interface WaterDao {
 
     @Query("SELECT * FROM water_entries ORDER BY timestamp ASC")
     suspend fun allForExport(): List<WaterEntry>
+
+    @Query("DELETE FROM water_entries")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -125,6 +134,9 @@ interface ExerciseDao {
 
     @Query("SELECT * FROM exercise_entries ORDER BY timestamp ASC")
     suspend fun allForExport(): List<ExerciseEntry>
+
+    @Query("DELETE FROM exercise_entries")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -174,6 +186,12 @@ interface RunDao {
 
     @Query("SELECT * FROM run_sessions ORDER BY startTime ASC")
     suspend fun allForExport(): List<RunSession>
+
+    @Query("DELETE FROM run_points")
+    suspend fun deleteAllPoints()
+
+    @Query("DELETE FROM run_sessions")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -192,4 +210,41 @@ interface ReminderDao {
 
     @Query("SELECT * FROM reminders WHERE id = :id")
     suspend fun byId(id: Long): Reminder?
+
+    @Query("SELECT * FROM reminders ORDER BY id ASC")
+    suspend fun allForExport(): List<Reminder>
+
+    @Query("DELETE FROM reminders")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface TrainingDao {
+    /** Used when the user answers the question — their answer always wins. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(day: TrainingDay)
+
+    /**
+     * Used by the auto-mark path when a workout's calories are logged. IGNORE rather than
+     * REPLACE so it can never overwrite a percentage the user typed, or a deliberate "no".
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(day: TrainingDay)
+
+    @Delete suspend fun delete(day: TrainingDay)
+
+    @Query("SELECT * FROM training_days WHERE epochDay = :epochDay")
+    fun observeDay(epochDay: Long): Flow<TrainingDay?>
+
+    @Query("SELECT * FROM training_days WHERE epochDay >= :fromDay ORDER BY epochDay ASC")
+    fun observeSince(fromDay: Long): Flow<List<TrainingDay>>
+
+    @Query("SELECT COUNT(*) FROM training_days WHERE trained = 1 AND epochDay >= :fromDay")
+    fun observeTrainedCountSince(fromDay: Long): Flow<Int>
+
+    @Query("SELECT * FROM training_days ORDER BY epochDay ASC")
+    suspend fun allForExport(): List<TrainingDay>
+
+    @Query("DELETE FROM training_days")
+    suspend fun deleteAll()
 }

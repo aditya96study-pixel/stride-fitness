@@ -45,9 +45,6 @@ jobs:
       - name: Generate the Room schemas
         run: ./gradlew :app:kspDebugKotlin --no-daemon --no-build-cache
 
-      - name: Build
-        run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
-
       # A Room schema can only be regenerated from the exact source revision that produced
       # it, so commit each one as soon as it exists — after the next version bump the
       # previous schema is unreconstructable, and with it the ability to test that migration.
@@ -64,6 +61,14 @@ jobs:
           git add app/schemas
           git commit -qm "chore: record Room schema generated from ${GITHUB_SHA}"
           git push -q "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
+
+      # The migration and calorie tests are the only automated coverage, so a failure
+      # here stops the APK from being published rather than being reported alongside it.
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Build
+        run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
 
       - name: Rename the APKs
         run: |
