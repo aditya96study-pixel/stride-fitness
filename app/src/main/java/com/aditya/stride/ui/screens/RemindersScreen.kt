@@ -2,6 +2,8 @@ package com.aditya.stride.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -157,7 +159,10 @@ fun RemindersScreen(onBack: () -> Unit) {
                 Column {
                     Hint("One tap to create a sensible group. Edit or delete any of them after.")
                     Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Chip("3 meal nudges", {
                             listOf(9 to "Log breakfast", 14 to "Log lunch", 21 to "Log dinner")
                                 .forEach { (hour, label) ->
@@ -190,6 +195,16 @@ fun RemindersScreen(onBack: () -> Unit) {
                                     kind = ReminderKind.WEIGHT.name,
                                     hour = 7,
                                     minute = 0,
+                                )
+                            )
+                        })
+                        Chip("Training check", {
+                            vm.upsertReminder(
+                                Reminder(
+                                    label = "Did you train today?",
+                                    kind = ReminderKind.EXERCISE.name,
+                                    hour = 21,
+                                    minute = 30,
                                 )
                             )
                         })

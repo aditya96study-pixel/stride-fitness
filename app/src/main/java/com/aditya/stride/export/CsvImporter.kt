@@ -70,9 +70,16 @@ sealed interface ImportResult {
  */
 object CsvImporter {
 
-    /** Above either of these, the file is more likely broken than merely imperfect. */
+    /**
+     * Above either of these, the file is more likely damaged than merely imperfect.
+     *
+     * The fraction has an absolute floor because a proportion alone is unusable on a small
+     * file: one unreadable row out of ten is 10%, which says nothing about whether the file
+     * is trustworthy. A handful of bad rows is reported and skipped; a flood is refused.
+     */
     private const val MAX_ERRORS = 20
     private const val MAX_ERROR_FRACTION = 0.05
+    private const val MIN_TOLERATED_ERRORS = 5
 
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
@@ -271,7 +278,11 @@ object CsvImporter {
         if (bundle.entryCount == 0) {
             return ImportResult.Rejected("No entries could be read from that file.", errors)
         }
-        if (errors.size > MAX_ERRORS || errors.size > dataRows.size * MAX_ERROR_FRACTION) {
+        val tolerated = maxOf(
+            MIN_TOLERATED_ERRORS.toDouble(),
+            dataRows.size * MAX_ERROR_FRACTION,
+        )
+        if (errors.size > MAX_ERRORS || errors.size > tolerated) {
             return ImportResult.Rejected(
                 "${errors.size} of ${dataRows.size} rows could not be read, so the file " +
                     "looks damaged. Nothing has been changed.",
@@ -392,7 +403,7 @@ object CsvImporter {
      * into line. A crash between the two leaves correct data with stale settings, which is
      * recoverable; the reverse would not be.
      */
-    suspend fun apply(context: Context, bundle: ImportBundle) {
+    suspend fun applyBundle(context: Context, bundle: ImportBundle) {
         val repo = Repository.get(context)
         val oldReminders = repo.reminders.allForExport()
 

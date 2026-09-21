@@ -389,7 +389,7 @@ class SettingsViewModel(app: Application) : StrideViewModel(app) {
 
     fun applyImport(bundle: ImportBundle) = viewModelScope.launch {
         _pendingImport.value = null
-        runCatching { CsvImporter.apply(getApplication<Application>(), bundle) }
+        runCatching { CsvImporter.applyBundle(getApplication<Application>(), bundle) }
             .onSuccess {
                 _importMessage.value = buildString {
                     append("Imported ${bundle.entryCount} entries.")
