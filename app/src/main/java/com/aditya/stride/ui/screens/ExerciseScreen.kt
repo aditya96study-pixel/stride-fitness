@@ -28,6 +28,7 @@ import com.aditya.stride.data.today
 import com.aditya.stride.data.trainedThisWeek
 import com.aditya.stride.tracking.CalorieCalc
 import com.aditya.stride.ui.asTime
+import com.aditya.stride.ui.oneDecimal
 import com.aditya.stride.ui.components.ChartSeries
 import com.aditya.stride.ui.components.Chip
 import com.aditya.stride.ui.components.DayNavigator

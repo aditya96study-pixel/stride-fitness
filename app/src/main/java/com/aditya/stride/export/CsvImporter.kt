@@ -152,8 +152,8 @@ object CsvImporter {
                 }
 
                 "weight" -> {
-                    val day = row.field("date").asEpochDay()
-                    val kg = row.field("value").asDouble()
+                    val day = row.field("date").epochDayOrNull()
+                    val kg = row.field("value").doubleOrNull()
                     if (day == null || kg == null) fail("needs a date and a weight") else {
                         weights += WeightEntry(
                             epochDay = day,
@@ -165,8 +165,8 @@ object CsvImporter {
                 }
 
                 "food" -> {
-                    val day = row.field("date").asEpochDay()
-                    val kcal = row.field("value").asInt()
+                    val day = row.field("date").epochDayOrNull()
+                    val kcal = row.field("value").intOrNull()
                     if (day == null || kcal == null) fail("needs a date and a calorie figure") else {
                         meals += MealEntry(
                             epochDay = day,
@@ -179,8 +179,8 @@ object CsvImporter {
                 }
 
                 "water" -> {
-                    val day = row.field("date").asEpochDay()
-                    val litres = row.field("value").asDouble()
+                    val day = row.field("date").epochDayOrNull()
+                    val litres = row.field("value").doubleOrNull()
                     if (day == null || litres == null) fail("needs a date and a volume") else {
                         waters += WaterEntry(
                             epochDay = day,
@@ -191,15 +191,15 @@ object CsvImporter {
                 }
 
                 "exercise" -> {
-                    val day = row.field("date").asEpochDay()
-                    val kcal = row.field("value").asInt()
+                    val day = row.field("date").epochDayOrNull()
+                    val kcal = row.field("value").intOrNull()
                     if (day == null || kcal == null) fail("needs a date and a calorie figure") else {
                         exercises += ExerciseEntry(
                             epochDay = day,
                             timestamp = timestamp(day, row.field("time")),
                             activity = row.field("detail").ifBlank { "Workout" },
                             kcal = kcal,
-                            durationMin = row.field("duration_min").asDouble()?.roundToInt() ?: 0,
+                            durationMin = row.field("duration_min").doubleOrNull()?.roundToInt() ?: 0,
                             note = row.field("notes").orNull(),
                         )
                     }
@@ -211,15 +211,15 @@ object CsvImporter {
                 "run" -> parseLegacyRun(row, ::fail)?.let { sessions += it }
 
                 "training" -> {
-                    val day = row.field("date").asEpochDay()
+                    val day = row.field("date").epochDayOrNull()
                     if (day == null) fail("needs a date") else {
                         training += TrainingDay(
                             epochDay = day,
                             trained = row.field("value") == "1" ||
                                 row.field("value").equals("true", ignoreCase = true),
-                            percentPlanned = row.field("percent_planned").asInt()
+                            percentPlanned = row.field("percent_planned").intOrNull()
                                 ?.coerceIn(0, 100),
-                            source = row.field("flags").asEnumName(
+                            source = row.field("flags").enumNameOrDefault(
                                 TrainingSource.entries.map { it.name },
                                 TrainingSource.MANUAL.name,
                             ),
@@ -229,17 +229,17 @@ object CsvImporter {
                 }
 
                 "reminder" -> {
-                    val time = row.field("time").asLocalTime()
+                    val time = row.field("time").localTimeOrNull()
                     if (time == null) fail("needs a time as HH:MM") else {
                         reminders += Reminder(
                             label = row.field("detail").ifBlank { "Reminder" },
-                            kind = row.field("activity").asEnumName(
+                            kind = row.field("activity").enumNameOrDefault(
                                 ReminderKind.entries.map { it.name },
                                 ReminderKind.GENERAL.name,
                             ),
                             hour = time.hour,
                             minute = time.minute,
-                            daysMask = row.field("value").asInt()?.coerceIn(0, 127) ?: 127,
+                            daysMask = row.field("value").intOrNull()?.coerceIn(0, 127) ?: 127,
                             enabled = !row.field("flags").equals("disabled", ignoreCase = true),
                         )
                     }
@@ -285,18 +285,18 @@ object CsvImporter {
         val header = CsvExporter.HEADER
         fun f(name: String) = row.getOrNull(header.indexOf(name))?.trim().orEmpty()
 
-        val day = f("date").asEpochDay()
-        val km = f("distance_km").asDouble()
+        val day = f("date").epochDayOrNull()
+        val km = f("distance_km").doubleOrNull()
         if (day == null || km == null) {
             fail("needs a date and a distance")
             return null
         }
         // Seconds are authoritative; duration_min is the human-readable copy.
-        val movingSec = f("moving_sec").asDouble() ?: 0.0
-        val elapsedSec = f("elapsed_sec").asDouble() ?: movingSec
+        val movingSec = f("moving_sec").doubleOrNull() ?: 0.0
+        val elapsedSec = f("elapsed_sec").doubleOrNull() ?: movingSec
         val start = timestamp(day, f("time"))
         val distanceM = km * 1000.0
-        val kcal = f("value").asInt() ?: 0
+        val kcal = f("value").intOrNull() ?: 0
         return RunSession(
             epochDay = day,
             startTime = start,
@@ -304,18 +304,18 @@ object CsvImporter {
             distanceM = distanceM,
             movingTimeMs = (movingSec * 1000).roundToLong(),
             elapsedTimeMs = (elapsedSec * 1000).roundToLong(),
-            avgSpeedMps = f("avg_speed_kmh").asDouble()?.div(3.6)
+            avgSpeedMps = f("avg_speed_kmh").doubleOrNull()?.div(3.6)
                 ?: if (movingSec > 0) distanceM / movingSec else 0.0,
-            maxSpeedMps = f("max_speed_kmh").asDouble()?.div(3.6) ?: 0.0,
-            elevationGainM = f("elev_gain_m").asDouble() ?: 0.0,
-            kcalAuto = f("kcal_auto").asInt() ?: kcal,
+            maxSpeedMps = f("max_speed_kmh").doubleOrNull()?.div(3.6) ?: 0.0,
+            elevationGainM = f("elev_gain_m").doubleOrNull() ?: 0.0,
+            kcalAuto = f("kcal_auto").intOrNull() ?: kcal,
             kcal = kcal,
             note = f("notes").orNull(),
-            activityType = f("activity").asEnumName(
+            activityType = f("activity").enumNameOrDefault(
                 ActivityType.entries.map { it.name },
                 ActivityType.RUN.name,
             ),
-            inclinePercent = f("incline_pct").asDouble() ?: 0.0,
+            inclinePercent = f("incline_pct").doubleOrNull() ?: 0.0,
         )
     }
 
@@ -332,18 +332,18 @@ object CsvImporter {
         val header = CsvExporter.HEADER_V1
         fun f(name: String) = row.getOrNull(header.indexOf(name))?.trim().orEmpty()
 
-        val day = f("date").asEpochDay()
-        val km = f("value").asDouble()
+        val day = f("date").epochDayOrNull()
+        val km = f("value").doubleOrNull()
         if (day == null || km == null) {
             fail("needs a date and a distance")
             return null
         }
         val detail = f("detail")
-        val minutes = f("duration_min").asDouble() ?: 0.0
+        val minutes = f("duration_min").doubleOrNull() ?: 0.0
         val movingSec = minutes * 60.0
         val distanceM = km * 1000.0
         val kcal = legacyKcal.find(detail)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-        val speedKmh = legacySpeed.find(detail)?.groupValues?.get(1)?.asDouble()
+        val speedKmh = legacySpeed.find(detail)?.groupValues?.get(1)?.doubleOrNull()
         val start = timestamp(day, f("time"))
         return RunSession(
             epochDay = day,
@@ -354,7 +354,7 @@ object CsvImporter {
             elapsedTimeMs = (movingSec * 1000).roundToLong(),
             avgSpeedMps = speedKmh?.div(3.6) ?: if (movingSec > 0) distanceM / movingSec else 0.0,
             maxSpeedMps = 0.0,
-            elevationGainM = legacyClimb.find(detail)?.groupValues?.get(1)?.asDouble() ?: 0.0,
+            elevationGainM = legacyClimb.find(detail)?.groupValues?.get(1)?.doubleOrNull() ?: 0.0,
             kcalAuto = kcal,
             kcal = kcal,
             note = f("notes").orNull(),
@@ -363,19 +363,19 @@ object CsvImporter {
     }
 
     private fun applyProfile(base: Profile, values: Map<String, String>): Profile = base.copy(
-        heightCm = values["height_cm"]?.asDouble() ?: base.heightCm,
-        age = values["age"]?.asInt() ?: base.age,
-        sex = values["sex"].asEnum(Sex.entries, base.sex),
-        fallbackWeightKg = values["fallback_weight_kg"]?.asDouble() ?: base.fallbackWeightKg,
-        activityLevel = values["activity_level"].asEnum(ActivityLevel.entries, base.activityLevel),
-        waterGoalL = values["water_goal_l"]?.asDouble() ?: base.waterGoalL,
-        calorieGoal = values["calorie_goal"]?.asInt() ?: base.calorieGoal,
+        heightCm = values["height_cm"]?.doubleOrNull() ?: base.heightCm,
+        age = values["age"]?.intOrNull() ?: base.age,
+        sex = values["sex"].enumOrDefault(Sex.entries, base.sex),
+        fallbackWeightKg = values["fallback_weight_kg"]?.doubleOrNull() ?: base.fallbackWeightKg,
+        activityLevel = values["activity_level"].enumOrDefault(ActivityLevel.entries, base.activityLevel),
+        waterGoalL = values["water_goal_l"]?.doubleOrNull() ?: base.waterGoalL,
+        calorieGoal = values["calorie_goal"]?.intOrNull() ?: base.calorieGoal,
         autoPause = values["auto_pause"]?.toBooleanStrictOrNull() ?: base.autoPause,
-        gpsAccuracyGateM = values["accuracy_gate"]?.asDouble()?.toFloat() ?: base.gpsAccuracyGateM,
+        gpsAccuracyGateM = values["accuracy_gate"]?.doubleOrNull()?.toFloat() ?: base.gpsAccuracyGateM,
         keepScreenOnDuringRun = values["keep_screen_on"]?.toBooleanStrictOrNull()
             ?: base.keepScreenOnDuringRun,
-        themeMode = values["theme_mode"].asEnum(ThemeMode.entries, base.themeMode),
-        snoozeMinutes = values["snooze_minutes"]?.asInt() ?: base.snoozeMinutes,
+        themeMode = values["theme_mode"].enumOrDefault(ThemeMode.entries, base.themeMode),
+        snoozeMinutes = values["snooze_minutes"]?.intOrNull() ?: base.snoozeMinutes,
     )
 
     // ---------------------------------------------------------------- applying
@@ -426,32 +426,32 @@ object CsvImporter {
 
     private fun String.orNull(): String? = takeIf { it.isNotBlank() }
 
-    private fun String.asDouble(): Double? =
+    private fun String.doubleOrNull(): Double? =
         // Accept a comma decimal separator: a spreadsheet in a comma-decimal locale will
         // happily write one back even though the app never does.
         trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
 
-    private fun String.asInt(): Int? = trim().toIntOrNull()
+    private fun String.intOrNull(): Int? = trim().toIntOrNull()
 
     /**
      * The date column, not the timestamp, decides which day a row belongs to — so
      * re-importing in a different timezone keeps the day grouping the user saw.
      */
-    private fun String.asEpochDay(): Long? =
+    private fun String.epochDayOrNull(): Long? =
         runCatching { LocalDate.parse(trim()).toEpochDay() }.getOrNull()
 
-    private fun String.asLocalTime(): LocalTime? =
+    private fun String.localTimeOrNull(): LocalTime? =
         runCatching { LocalTime.parse(trim()) }.getOrNull()
 
-    private fun String.asEnumName(allowed: List<String>, fallback: String): String =
+    private fun String.enumNameOrDefault(allowed: List<String>, fallback: String): String =
         trim().uppercase().takeIf { it in allowed } ?: fallback
 
-    private fun <E : Enum<E>> String?.asEnum(entries: List<E>, fallback: E): E =
+    private fun <E : Enum<E>> String?.enumOrDefault(entries: List<E>, fallback: E): E =
         entries.firstOrNull { it.name == this?.trim()?.uppercase() } ?: fallback
 
     /** Midnight when a row has no time, which is honest about not knowing. */
     private fun timestamp(epochDay: Long, hhmm: String): Long {
-        val time = hhmm.asLocalTime() ?: LocalTime.MIDNIGHT
+        val time = hhmm.localTimeOrNull() ?: LocalTime.MIDNIGHT
         return LocalDate.ofEpochDay(epochDay).atTime(time).atZone(zone).toInstant().toEpochMilli()
     }
 }

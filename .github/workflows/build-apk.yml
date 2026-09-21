@@ -15,6 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # GitHub's default shell is `bash -e`, which reports a pipeline's LAST exit status --
+    # so `./gradlew ... | tee build.log` would report tee's success and let a failed build
+    # carry on to the next step. pipefail is what makes the tee below safe.
+    defaults:
+      run:
+        shell: bash --noprofile --norc -eo pipefail {0}
+
     steps:
       - name: Check out the project
         uses: actions/checkout@v4
