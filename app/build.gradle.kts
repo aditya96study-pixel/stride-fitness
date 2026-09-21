@@ -78,7 +78,10 @@ dependencies {
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
+    // Per-variant rather than plain `ksp(...)`: that form also runs the processor over the
+    // unit-test and androidTest source sets, which hold no Room annotations at all.
+    kspDebug(libs.androidx.room.compiler)
+    kspRelease(libs.androidx.room.compiler)
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.play.services.location)

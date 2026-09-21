@@ -72,10 +72,10 @@ jobs:
       # The migration and calorie tests are the only automated coverage, so a failure
       # here stops the APK from being published rather than being reported alongside it.
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon | tee build.log
+        run: ./gradlew :app:testDebugUnitTest --no-daemon 2>&1 | tee build.log
 
       - name: Build
-        run: ./gradlew assembleDebug assembleRelease --no-daemon | tee -a build.log
+        run: ./gradlew assembleDebug assembleRelease --no-daemon 2>&1 | tee -a build.log
 
       # Gradle prints compiler diagnostics thousands of lines above its own stack trace,
       # so on failure they are off the end of anything but a full log download. Repeat

@@ -171,11 +171,15 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                             value = runKmToday.twoDecimals(),
                             unit = "km",
                             accent = seriesPalette.distance,
-                            caption = if (runs.isEmpty()) "no run today" else "${runs.size} run(s)",
+                            caption = when (runs.size) {
+                                0 -> "nothing recorded"
+                                1 -> "1 session"
+                                else -> "${runs.size} sessions"
+                            },
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
-                            label = "Workouts",
+                            label = "Training",
                             value = exercise.size.toString(),
                             unit = if (exercise.size == 1) "entry" else "entries",
                             accent = seriesPalette.calOut,
