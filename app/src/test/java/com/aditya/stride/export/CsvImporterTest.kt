@@ -24,6 +24,8 @@ class CsvImporterTest {
         return Csv.row(cells)
     }
 
+    private fun v1(vararg values: String) = Csv.row(values.toList())
+
     private fun versionRow() = row("type" to "meta", "key" to "stride_csv_version", "value" to "2")
 
     private fun ready(result: ImportResult): ImportResult.Ready {
@@ -234,7 +236,6 @@ class CsvImporterTest {
 
     @Test
     fun aVersion1FileIsReadableAndFlaggedAsLossy() {
-        val v1 = { vararg values: String -> Csv.row(values.toList()) }
         val text = listOf(
             Csv.row(CsvExporter.HEADER_V1),
             v1("weight", "2026-01-02", "07:30", "72.50", "kg", "", "", "morning"),
