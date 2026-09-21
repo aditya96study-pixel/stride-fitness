@@ -37,13 +37,20 @@ jobs:
       - name: Make the wrapper executable
         run: chmod +x gradlew
 
+      # Room writes its schema JSON as a side effect of annotation processing, and
+      # `room.schemaLocation` being a plain KSP argument means that directory is not a
+      # declared task output. So when Gradle serves the KSP task from its build cache the
+      # file is silently never written. Run the processor once with the cache disabled to
+      # guarantee the schema exists; the main build below then reuses these outputs.
+      - name: Generate the Room schemas
+        run: ./gradlew :app:kspDebugKotlin --no-daemon --no-build-cache
+
       - name: Build
         run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
 
-      # Room emits its schema JSON during the build (room.schemaLocation in
-      # app/build.gradle.kts). Those files are what make a migration testable, and a
-      # schema can only ever be regenerated from the source revision that produced it —
-      # so commit them as soon as they exist rather than after the next version bump.
+      # A Room schema can only be regenerated from the exact source revision that produced
+      # it, so commit each one as soon as it exists — after the next version bump the
+      # previous schema is unreconstructable, and with it the ability to test that migration.
       - name: Commit the generated Room schemas
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
