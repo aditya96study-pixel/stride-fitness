@@ -68,11 +68,45 @@ jobs:
             -Pandroid.testInstrumentationRunnerArguments.class=com.aditya.stride.data.MigrationTest
             --no-daemon
 
+      # A connected test run that finds no tests can still report success, and a green
+      # check that ran nothing is worse than no check -- this is the release's only
+      # automated guard against losing the data already on the phone.
+      - name: Assert the tests actually ran
+        # `grep -q ... && {...}` would trip `set -e` on the no-match case, which is the
+        # case this step exists to confirm, so the check is written as an `if`.
+        run: |
+          mapfile -t xml < <(
+            find app/build/outputs/androidTest-results -name '*.xml' 2>/dev/null | sort
+          )
+          if [ ${#xml[@]} -eq 0 ]; then
+            echo "No instrumentation result XML was produced."
+            exit 1
+          fi
+          total=0
+          for f in "${xml[@]}"; do
+            n=$(sed -n 's/.*<testsuite[^>]* tests="\([0-9]*\)".*/\1/p' "$f" | head -n1)
+            n=${n:-0}
+            echo "$f: $n test(s)"
+            total=$(( total + n ))
+            if grep -q "<failure" "$f"; then
+              echo "A failure is recorded in $f:"
+              grep -oE 'message="[^"]*"' "$f" | head -n 5
+              exit 1
+            fi
+          done
+          echo "total tests run: $total"
+          if [ "$total" -lt 2 ]; then
+            echo "Expected both migration tests to run; got $total."
+            exit 1
+          fi
+
       - name: Upload the test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: migration-test-report
-          path: app/build/reports/androidTests/
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
           if-no-files-found: ignore
           retention-days: 14
