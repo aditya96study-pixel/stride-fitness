@@ -14,17 +14,13 @@ import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.SeriesKind
 import com.aditya.stride.ui.components.ZoomableTimeChart
 import com.aditya.stride.ui.oneDecimal
-import com.aditya.stride.ui.theme.SeriesCalIn
-import com.aditya.stride.ui.theme.SeriesCalOut
-import com.aditya.stride.ui.theme.SeriesDistance
-import com.aditya.stride.ui.theme.SeriesWater
-import com.aditya.stride.ui.theme.SeriesWeight
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.twoDecimals
 import com.aditya.stride.ui.vm.DashboardViewModel
 import kotlin.math.roundToInt
 
 @Composable
-fun TrendsScreen() {
+fun TrendsScreen(onOpenSettings: () -> Unit) {
     val vm: DashboardViewModel = viewModel()
     LaunchedEffect(Unit) { vm.refreshToday() }
 
@@ -38,6 +34,7 @@ fun TrendsScreen() {
     ScreenFrame(
         title = "Trends",
         subtitle = "Pinch any chart to zoom, hold to read a value",
+        actions = { SettingsAction(onOpenSettings) },
     ) {
         item {
             SectionCard(
@@ -45,7 +42,7 @@ fun TrendsScreen() {
                 subtitle = "Dashed stretches are days with no reading",
             ) {
                 ZoomableTimeChart(
-                    series = listOf(ChartSeries("Weight", SeriesWeight, weightDaily, SeriesKind.LINE)),
+                    series = listOf(ChartSeries("Weight", seriesPalette.weight, weightDaily, SeriesKind.LINE)),
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " kg",
                     chartHeight = 300.dp,
@@ -62,8 +59,8 @@ fun TrendsScreen() {
             ) {
                 ZoomableTimeChart(
                     series = listOf(
-                        ChartSeries("Eaten", SeriesCalIn, calIn, SeriesKind.BAR),
-                        ChartSeries("Burned", SeriesCalOut, calOut, SeriesKind.BAR),
+                        ChartSeries("Eaten", seriesPalette.calIn, calIn, SeriesKind.BAR),
+                        ChartSeries("Burned", seriesPalette.calOut, calOut, SeriesKind.BAR),
                     ),
                     valueLabel = { it.roundToInt().toString() },
                     unitSuffix = " kcal",
@@ -71,7 +68,7 @@ fun TrendsScreen() {
                     guide = ChartGuide(
                         profile.calorieGoal.toDouble(),
                         "intake target",
-                        SeriesCalIn,
+                        seriesPalette.calIn,
                     ),
                     chartHeight = 300.dp,
                     defaultWindowDays = 30f,
@@ -83,11 +80,11 @@ fun TrendsScreen() {
         item {
             SectionCard(title = "Water", subtitle = "Litres per day") {
                 ZoomableTimeChart(
-                    series = listOf(ChartSeries("Water", SeriesWater, waterDaily, SeriesKind.BAR)),
+                    series = listOf(ChartSeries("Water", seriesPalette.water, waterDaily, SeriesKind.BAR)),
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " L",
                     zeroBased = true,
-                    guide = ChartGuide(profile.waterGoalL, "target", SeriesWater),
+                    guide = ChartGuide(profile.waterGoalL, "target", seriesPalette.water),
                     chartHeight = 280.dp,
                     defaultWindowDays = 30f,
                     emptyMessage = "No water logged yet",
@@ -99,7 +96,7 @@ fun TrendsScreen() {
             SectionCard(title = "Running", subtitle = "Kilometres per day") {
                 ZoomableTimeChart(
                     series = listOf(
-                        ChartSeries("Distance", SeriesDistance, distanceDaily, SeriesKind.BAR)
+                        ChartSeries("Distance", seriesPalette.distance, distanceDaily, SeriesKind.BAR)
                     ),
                     valueLabel = { it.twoDecimals() },
                     unitSuffix = " km",

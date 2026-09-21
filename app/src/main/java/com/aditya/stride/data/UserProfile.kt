@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.map
 
 enum class Sex { MALE, FEMALE }
 
+enum class ThemeMode(val label: String) {
+    SYSTEM("System"),
+    LIGHT("Light"),
+    DARK("Dark"),
+}
+
 /** Multiplier applied to BMR to estimate daily expenditure before logged exercise. */
 enum class ActivityLevel(val label: String, val factor: Double, val blurb: String) {
     SEDENTARY("Sedentary", 1.2, "Desk job, little movement"),
@@ -24,7 +30,6 @@ enum class ActivityLevel(val label: String, val factor: Double, val blurb: Strin
 }
 
 data class Profile(
-    val name: String = "",
     val heightCm: Double = 175.0,
     val age: Int = 30,
     val sex: Sex = Sex.MALE,
@@ -39,6 +44,9 @@ data class Profile(
     /** Discard GPS fixes reported less accurate than this many metres. */
     val gpsAccuracyGateM: Float = 25f,
     val keepScreenOnDuringRun: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** How far a snoozed reminder is pushed back. */
+    val snoozeMinutes: Int = 30,
 ) {
     /** Mifflin–St Jeor basal metabolic rate, kcal/day. */
     fun bmr(weightKg: Double): Double {
@@ -55,7 +63,6 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class ProfileStore(private val context: Context) {
 
     private object Keys {
-        val NAME = stringPreferencesKey("name")
         val HEIGHT = doublePreferencesKey("height_cm")
         val AGE = intPreferencesKey("age")
         val SEX = stringPreferencesKey("sex")
@@ -67,11 +74,12 @@ class ProfileStore(private val context: Context) {
         val AUTO_PAUSE = booleanPreferencesKey("auto_pause")
         val ACCURACY_GATE = doublePreferencesKey("accuracy_gate")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
     }
 
     val profile: Flow<Profile> = context.dataStore.data.map { p ->
         Profile(
-            name = p[Keys.NAME] ?: "",
             heightCm = p[Keys.HEIGHT] ?: 175.0,
             age = p[Keys.AGE] ?: 30,
             sex = runCatching { Sex.valueOf(p[Keys.SEX] ?: "MALE") }.getOrDefault(Sex.MALE),
@@ -85,12 +93,15 @@ class ProfileStore(private val context: Context) {
             autoPause = p[Keys.AUTO_PAUSE] ?: true,
             gpsAccuracyGateM = (p[Keys.ACCURACY_GATE] ?: 25.0).toFloat(),
             keepScreenOnDuringRun = p[Keys.KEEP_SCREEN_ON] ?: true,
+            themeMode = runCatching {
+                ThemeMode.valueOf(p[Keys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
+            }.getOrDefault(ThemeMode.SYSTEM),
+            snoozeMinutes = (p[Keys.SNOOZE_MINUTES] ?: 30).coerceIn(5, 240),
         )
     }
 
     suspend fun save(profile: Profile) {
         context.dataStore.edit { p ->
-            p[Keys.NAME] = profile.name
             p[Keys.HEIGHT] = profile.heightCm
             p[Keys.AGE] = profile.age
             p[Keys.SEX] = profile.sex.name
@@ -102,10 +113,66 @@ class ProfileStore(private val context: Context) {
             p[Keys.AUTO_PAUSE] = profile.autoPause
             p[Keys.ACCURACY_GATE] = profile.gpsAccuracyGateM.toDouble()
             p[Keys.KEEP_SCREEN_ON] = profile.keepScreenOnDuringRun
+            p[Keys.THEME_MODE] = profile.themeMode.name
+            p[Keys.SNOOZE_MINUTES] = profile.snoozeMinutes
         }
+        ThemeCache.write(context, profile.themeMode)
+    }
+
+    // Single-key writers. [save] rewrites every key from whatever Profile it is handed, so
+    // a toggle that went through it would also write back a stale copy of the text fields
+    // the user was in the middle of editing. Anything that changes one setting on its own
+    // uses one of these instead.
+
+    suspend fun setAutoPause(value: Boolean) {
+        context.dataStore.edit { it[Keys.AUTO_PAUSE] = value }
+    }
+
+    suspend fun setKeepScreenOn(value: Boolean) {
+        context.dataStore.edit { it[Keys.KEEP_SCREEN_ON] = value }
+    }
+
+    suspend fun setGpsAccuracyGateM(value: Float) {
+        context.dataStore.edit { it[Keys.ACCURACY_GATE] = value.toDouble() }
+    }
+
+    suspend fun setSnoozeMinutes(value: Int) {
+        context.dataStore.edit { it[Keys.SNOOZE_MINUTES] = value.coerceIn(5, 240) }
+    }
+
+    suspend fun setThemeMode(value: ThemeMode) {
+        context.dataStore.edit { it[Keys.THEME_MODE] = value.name }
+        ThemeCache.write(context, value)
     }
 
     suspend fun markOnboarded() {
         context.dataStore.edit { it[Keys.ONBOARDED] = true }
+    }
+}
+
+/**
+ * The theme has to be known before the first frame, and DataStore is asynchronous — so the
+ * chosen mode is mirrored into SharedPreferences, which can be read on the main thread in
+ * `onCreate`. Blocking on DataStore instead would risk an ANR at launch; showing the system
+ * theme for one frame and then switching is the visible alternative, and worse.
+ */
+object ThemeCache {
+    private const val FILE = "stride_theme"
+    private const val KEY = "theme_mode"
+
+    fun read(context: Context): ThemeMode = runCatching {
+        val raw = context
+            .getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getString(KEY, null)
+        if (raw == null) ThemeMode.SYSTEM else ThemeMode.valueOf(raw)
+    }.getOrDefault(ThemeMode.SYSTEM)
+
+    fun write(context: Context, mode: ThemeMode) {
+        runCatching {
+            context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY, mode.name)
+                .apply()
+        }
     }
 }

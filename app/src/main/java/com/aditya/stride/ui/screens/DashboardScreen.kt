@@ -43,11 +43,7 @@ import com.aditya.stride.ui.components.ZoomableTimeChart
 import com.aditya.stride.ui.dayLabel
 import com.aditya.stride.ui.nav.Routes
 import com.aditya.stride.ui.oneDecimal
-import com.aditya.stride.ui.theme.SeriesCalIn
-import com.aditya.stride.ui.theme.SeriesCalOut
-import com.aditya.stride.ui.theme.SeriesDistance
-import com.aditya.stride.ui.theme.SeriesWater
-import com.aditya.stride.ui.theme.SeriesWeight
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.theme.StatusCritical
 import com.aditya.stride.ui.theme.StatusGood
 import com.aditya.stride.ui.twoDecimals
@@ -56,7 +52,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
-fun DashboardScreen(onOpen: (String) -> Unit) {
+fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
     val vm: DashboardViewModel = viewModel()
     LaunchedEffect(Unit) { vm.refreshToday() }
 
@@ -88,6 +84,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
         title = "Today",
         subtitle = today().dayLabel() + "  ·  " + java.time.LocalDate.now()
             .format(java.time.format.DateTimeFormatter.ofPattern("d MMMM")),
+        actions = { SettingsAction(onOpenSettings) },
     ) {
         // ---------- energy balance ----------
         item {
@@ -119,14 +116,14 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                             label = "Eaten",
                             value = kcalIn.toString(),
                             unit = "kcal",
-                            accent = SeriesCalIn,
+                            accent = seriesPalette.calIn,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             label = "Burned",
                             value = totalOut.asInt(),
                             unit = "kcal",
-                            accent = SeriesCalOut,
+                            accent = seriesPalette.calOut,
                             caption = "${baseline.roundToInt()} base + $activityKcal active",
                             modifier = Modifier.weight(1.3f),
                         )
@@ -137,7 +134,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                         fraction = if (profile.calorieGoal > 0) {
                             kcalIn / profile.calorieGoal.toFloat()
                         } else 0f,
-                        accent = SeriesCalIn,
+                        accent = seriesPalette.calIn,
                     )
                     Spacer(Modifier.height(6.dp))
                     Hint("$kcalIn of ${profile.calorieGoal} kcal daily target")
@@ -154,7 +151,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                             label = "Weight",
                             value = latestWeight?.weightKg?.oneDecimal() ?: "—",
                             unit = "kg",
-                            accent = SeriesWeight,
+                            accent = seriesPalette.weight,
                             caption = latestWeight?.epochDay?.dayLabel(),
                             modifier = Modifier.weight(1f),
                         )
@@ -162,7 +159,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                             label = "Water",
                             value = waterL.oneDecimal(),
                             unit = "L",
-                            accent = SeriesWater,
+                            accent = seriesPalette.water,
                             caption = "target ${profile.waterGoalL.oneDecimal()} L",
                             modifier = Modifier.weight(1f),
                         )
@@ -173,7 +170,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                             label = "Distance",
                             value = runKmToday.twoDecimals(),
                             unit = "km",
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                             caption = if (runs.isEmpty()) "no run today" else "${runs.size} run(s)",
                             modifier = Modifier.weight(1f),
                         )
@@ -181,7 +178,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                             label = "Workouts",
                             value = exercise.size.toString(),
                             unit = if (exercise.size == 1) "entry" else "entries",
-                            accent = SeriesCalOut,
+                            accent = seriesPalette.calOut,
                             caption = if (manualKcal > 0) "$manualKcal kcal logged" else null,
                             modifier = Modifier.weight(1f),
                         )
@@ -191,7 +188,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                         fraction = if (profile.waterGoalL > 0) {
                             (waterL / profile.waterGoalL).toFloat()
                         } else 0f,
-                        accent = SeriesWater,
+                        accent = seriesPalette.water,
                     )
                 }
             }
@@ -205,10 +202,10 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        QuickAction("Food", Icons.Rounded.Restaurant, SeriesCalIn, Modifier.weight(1f)) {
+                        QuickAction("Food", Icons.Rounded.Restaurant, seriesPalette.calIn, Modifier.weight(1f)) {
                             onOpen(Routes.FOOD)
                         }
-                        QuickAction("Water", Icons.Rounded.LocalDrink, SeriesWater, Modifier.weight(1f)) {
+                        QuickAction("Water", Icons.Rounded.LocalDrink, seriesPalette.water, Modifier.weight(1f)) {
                             onOpen(Routes.WATER)
                         }
                     }
@@ -217,10 +214,10 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        QuickAction("Weight", Icons.Rounded.MonitorWeight, SeriesWeight, Modifier.weight(1f)) {
+                        QuickAction("Weight", Icons.Rounded.MonitorWeight, seriesPalette.weight, Modifier.weight(1f)) {
                             onOpen(Routes.WEIGHT)
                         }
-                        QuickAction("Workout", Icons.Rounded.FitnessCenter, SeriesCalOut, Modifier.weight(1f)) {
+                        QuickAction("Workout", Icons.Rounded.FitnessCenter, seriesPalette.calOut, Modifier.weight(1f)) {
                             onOpen(Routes.EXERCISE)
                         }
                     }
@@ -236,8 +233,8 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
             ) {
                 ZoomableTimeChart(
                     series = listOf(
-                        ChartSeries("Eaten", SeriesCalIn, calIn, SeriesKind.BAR),
-                        ChartSeries("Burned", SeriesCalOut, calOut, SeriesKind.BAR),
+                        ChartSeries("Eaten", seriesPalette.calIn, calIn, SeriesKind.BAR),
+                        ChartSeries("Burned", seriesPalette.calOut, calOut, SeriesKind.BAR),
                     ),
                     valueLabel = { it.roundToInt().toString() },
                     unitSuffix = " kcal",
@@ -252,7 +249,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
             SectionCard(title = "Weight", subtitle = "Every reading, newest on the right") {
                 ZoomableTimeChart(
                     series = listOf(
-                        ChartSeries("Weight", SeriesWeight, weightDaily, SeriesKind.LINE)
+                        ChartSeries("Weight", seriesPalette.weight, weightDaily, SeriesKind.LINE)
                     ),
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " kg",
@@ -266,7 +263,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
             SectionCard(title = "Water", subtitle = "Daily total against your target") {
                 ZoomableTimeChart(
                     series = listOf(
-                        ChartSeries("Water", SeriesWater, waterDaily, SeriesKind.BAR)
+                        ChartSeries("Water", seriesPalette.water, waterDaily, SeriesKind.BAR)
                     ),
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " L",
@@ -274,7 +271,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                     guide = com.aditya.stride.ui.components.ChartGuide(
                         value = profile.waterGoalL,
                         label = "target",
-                        color = SeriesWater,
+                        color = seriesPalette.water,
                     ),
                     defaultWindowDays = 21f,
                     emptyMessage = "No water logged yet",
@@ -286,7 +283,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
             SectionCard(title = "Distance run", subtitle = "Kilometres per day") {
                 ZoomableTimeChart(
                     series = listOf(
-                        ChartSeries("Distance", SeriesDistance, distanceDaily, SeriesKind.BAR)
+                        ChartSeries("Distance", seriesPalette.distance, distanceDaily, SeriesKind.BAR)
                     ),
                     valueLabel = { it.twoDecimals() },
                     unitSuffix = " km",
@@ -306,7 +303,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                                 title = "Run · ${(run.distanceM / 1000.0).twoDecimals()} km",
                                 subtitle = run.startTime.asTime() + "  ·  " + run.movingTimeMs.asClock(),
                                 trailing = "${run.kcal} kcal",
-                                accent = SeriesDistance,
+                                accent = seriesPalette.distance,
                             )
                         }
                         exercise.forEach { entry ->
@@ -315,7 +312,7 @@ fun DashboardScreen(onOpen: (String) -> Unit) {
                                 subtitle = entry.timestamp.asTime() +
                                     if (entry.durationMin > 0) "  ·  ${entry.durationMin} min" else "",
                                 trailing = "${entry.kcal} kcal",
-                                accent = SeriesCalOut,
+                                accent = seriesPalette.calOut,
                             )
                         }
                     }

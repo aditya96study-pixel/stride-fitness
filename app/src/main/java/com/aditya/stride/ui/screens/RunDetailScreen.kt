@@ -37,8 +37,7 @@ import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.StatTile
 import com.aditya.stride.ui.components.TextField
 import com.aditya.stride.ui.oneDecimal
-import com.aditya.stride.ui.theme.SeriesCalOut
-import com.aditya.stride.ui.theme.SeriesDistance
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.theme.StatusCritical
 import com.aditya.stride.ui.twoDecimals
 import com.aditya.stride.ui.vm.RunHistoryViewModel
@@ -87,7 +86,7 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                     RouteMap(
                         latitudes = points.map { it.lat },
                         longitudes = points.map { it.lon },
-                        lineColor = SeriesDistance,
+                        lineColor = seriesPalette.distance,
                     )
                 }
             }
@@ -101,19 +100,19 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                             "Distance",
                             (run.distanceM / 1000.0).twoDecimals(),
                             "km",
-                            SeriesDistance,
+                            seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Moving",
                             run.movingTimeMs.asClock(),
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Elapsed",
                             run.elapsedTimeMs.asClock(),
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -123,21 +122,21 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                             "Avg pace",
                             avgPace?.let { formatPace(it) } ?: "--:--",
                             "/km",
-                            SeriesDistance,
+                            seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Avg speed",
                             (run.avgSpeedMps * 3.6).oneDecimal(),
                             "km/h",
-                            SeriesDistance,
+                            seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Top speed",
                             (run.maxSpeedMps * 3.6).oneDecimal(),
                             "km/h",
-                            SeriesDistance,
+                            seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -147,14 +146,14 @@ fun RunDetailScreen(runId: Long, onBack: () -> Unit) {
                             "Climb",
                             run.elevationGainM.roundToInt().toString(),
                             "m",
-                            SeriesCalOut,
+                            seriesPalette.calOut,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             "Calories",
                             run.kcal.toString(),
                             "kcal",
-                            SeriesCalOut,
+                            seriesPalette.calOut,
                             caption = if (run.kcal != run.kcalAuto) {
                                 "edited from ${run.kcalAuto}"
                             } else "from pace, weight and climb",

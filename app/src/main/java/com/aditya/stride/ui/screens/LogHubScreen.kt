@@ -29,15 +29,15 @@ import androidx.compose.ui.unit.dp
 import com.aditya.stride.ui.components.ScreenFrame
 import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.nav.Routes
-import com.aditya.stride.ui.theme.SeriesCalIn
-import com.aditya.stride.ui.theme.SeriesCalOut
-import com.aditya.stride.ui.theme.SeriesDistance
-import com.aditya.stride.ui.theme.SeriesWater
-import com.aditya.stride.ui.theme.SeriesWeight
+import com.aditya.stride.ui.theme.seriesPalette
 
 @Composable
-fun LogHubScreen(onOpen: (String) -> Unit) {
-    ScreenFrame(title = "Log", subtitle = "Everything you record by hand") {
+fun LogHubScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
+    ScreenFrame(
+        title = "Log",
+        subtitle = "Everything you record by hand",
+        actions = { SettingsAction(onOpenSettings) },
+    ) {
         item {
             SectionCard {
                 Column {
@@ -45,31 +45,31 @@ fun LogHubScreen(onOpen: (String) -> Unit) {
                         "Food",
                         "Meals and their calories, with the time you ate",
                         Icons.Rounded.Restaurant,
-                        SeriesCalIn,
+                        seriesPalette.calIn,
                     ) { onOpen(Routes.FOOD) }
                     HubRow(
                         "Water",
                         "Litres through the day, against your target",
                         Icons.Rounded.LocalDrink,
-                        SeriesWater,
+                        seriesPalette.water,
                     ) { onOpen(Routes.WATER) }
                     HubRow(
                         "Weight",
                         "Readings in kilograms and the trend",
                         Icons.Rounded.MonitorWeight,
-                        SeriesWeight,
+                        seriesPalette.weight,
                     ) { onOpen(Routes.WEIGHT) }
                     HubRow(
                         "Workouts",
                         "Weight training and anything else you burn",
                         Icons.Rounded.FitnessCenter,
-                        SeriesCalOut,
+                        seriesPalette.calOut,
                     ) { onOpen(Routes.EXERCISE) }
                     HubRow(
                         "Runs",
                         "Past runs, splits and routes",
                         Icons.Rounded.DirectionsRun,
-                        SeriesDistance,
+                        seriesPalette.distance,
                     ) { onOpen(Routes.RUNS_LIST) }
                 }
             }

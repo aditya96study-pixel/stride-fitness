@@ -34,7 +34,7 @@ import com.aditya.stride.ui.components.TimeRow
 import com.aditya.stride.ui.components.ZoomableTimeChart
 import com.aditya.stride.ui.dayLabel
 import com.aditya.stride.ui.oneDecimal
-import com.aditya.stride.ui.theme.SeriesWeight
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.vm.WeightViewModel
 import java.time.LocalTime
 import java.time.ZoneId
@@ -91,7 +91,7 @@ fun WeightScreen(onBack: () -> Unit) {
                     SaveButton(
                         text = "Save reading",
                         enabled = valid,
-                        accent = SeriesWeight,
+                        accent = seriesPalette.weight,
                         onClick = {
                             val timestamp = day.epochDayToLocalDate()
                                 .atTime(hour, minute)
@@ -117,7 +117,7 @@ fun WeightScreen(onBack: () -> Unit) {
                 subtitle = "${daily.size} day(s) recorded",
             ) {
                 ZoomableTimeChart(
-                    series = listOf(ChartSeries("Weight", SeriesWeight, daily, SeriesKind.LINE)),
+                    series = listOf(ChartSeries("Weight", seriesPalette.weight, daily, SeriesKind.LINE)),
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " kg",
                     chartHeight = 270.dp,
@@ -181,7 +181,7 @@ fun WeightScreen(onBack: () -> Unit) {
                             trailing = delta?.let {
                                 (if (it >= 0) "+" else "−") + abs(it).oneDecimal()
                             } ?: "—",
-                            accent = SeriesWeight,
+                            accent = seriesPalette.weight,
                             onDelete = { vm.delete(entry) },
                         )
                     }

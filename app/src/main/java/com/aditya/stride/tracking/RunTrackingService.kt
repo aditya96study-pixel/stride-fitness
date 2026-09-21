@@ -19,6 +19,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.aditya.stride.MainActivity
 import com.aditya.stride.R
+import com.aditya.stride.data.ActivityType
 import com.aditya.stride.data.Repository
 import com.aditya.stride.data.RunPoint
 import com.aditya.stride.data.RunSession
@@ -55,8 +56,20 @@ class RunTrackingService : Service() {
         const val ACTION_FINISH = "com.aditya.stride.FINISH"
         const val ACTION_DISCARD = "com.aditya.stride.DISCARD"
 
-        fun send(context: Context, action: String) {
-            val intent = Intent(context, RunTrackingService::class.java).setAction(action)
+        const val EXTRA_ACTIVITY_TYPE = "activity_type"
+
+        /**
+         * The type only matters on START; defaulting it keeps the notification's
+         * Pause / Resume / Finish actions as plain action-only intents.
+         */
+        fun send(
+            context: Context,
+            action: String,
+            activityType: ActivityType = ActivityType.RUN,
+        ) {
+            val intent = Intent(context, RunTrackingService::class.java)
+                .setAction(action)
+                .putExtra(EXTRA_ACTIVITY_TYPE, activityType.name)
             if (action == ACTION_START) {
                 ContextCompat.startForegroundService(context, intent)
             } else {
@@ -99,7 +112,7 @@ class RunTrackingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> handleStart()
+            ACTION_START -> handleStart(intent.activityType())
             ACTION_PAUSE -> handlePause(auto = false)
             ACTION_RESUME -> handleResume(auto = false)
             ACTION_FINISH -> handleFinish(save = true)
@@ -109,15 +122,25 @@ class RunTrackingService : Service() {
         return START_STICKY
     }
 
+    /**
+     * A replayed intent (START_STICKY redelivery) or a hand-edited one must not crash the
+     * service, and a treadmill session is typed in rather than tracked, so anything that
+     * is not a GPS activity falls back to a run.
+     */
+    private fun Intent?.activityType(): ActivityType = runCatching {
+        ActivityType.valueOf(this?.getStringExtra(EXTRA_ACTIVITY_TYPE) ?: ActivityType.RUN.name)
+    }.getOrDefault(ActivityType.RUN).takeIf { it.isGps } ?: ActivityType.RUN
+
     // ---------------- lifecycle of a run ----------------
 
-    private fun handleStart() {
+    private fun handleStart(activityType: ActivityType) {
         if (RunTracker.state.value.isActive) return
 
+        val initial = RunState(status = RunStatus.TRACKING, activityType = activityType)
         ServiceCompat.startForeground(
             this,
             Notifications.RUN_NOTIFICATION_ID,
-            buildNotification(RunState()),
+            buildNotification(initial),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             } else {
@@ -125,14 +148,6 @@ class RunTrackingService : Service() {
             },
         )
 
-        scope.launch {
-            val profile = repo.profile.first()
-            weightKg = repo.effectiveWeightKg(profile)
-            autoPauseEnabled = profile.autoPause
-            filter = LocationFilter(accuracyGateM = profile.gpsAccuracyGateM)
-        }
-
-        filter.reset()
         startRealtime = SystemClock.elapsedRealtime()
         lastTickRealtime = startRealtime
         movingAccumMs = 0L
@@ -140,13 +155,21 @@ class RunTrackingService : Service() {
         nextSplitKm = 1
         lastSplitMovingMs = 0L
 
-        RunTracker.set(
-            RunState(status = RunStatus.TRACKING, startedAt = System.currentTimeMillis())
-        )
-
+        RunTracker.set(initial.copy(startedAt = System.currentTimeMillis()))
         acquireWakeLock()
-        requestUpdates()
-        startTicker()
+
+        // The profile has to be loaded before the first fix arrives, not alongside it:
+        // it supplies the body weight the calorie maths uses and the accuracy gate the
+        // filter applies, and fixes accepted before it lands would use the defaults.
+        scope.launch {
+            val profile = repo.profile.first()
+            weightKg = repo.effectiveWeightKg(profile)
+            autoPauseEnabled = profile.autoPause
+            filter = LocationFilter(accuracyGateM = profile.gpsAccuracyGateM)
+            filter.reset()
+            requestUpdates()
+            startTicker()
+        }
     }
 
     private fun handlePause(auto: Boolean) {
@@ -196,6 +219,7 @@ class RunTrackingService : Service() {
                 elevationGainM = state.elevationGainM,
                 kcalAuto = autoKcal,
                 kcal = autoKcal,
+                activityType = state.activityType.name,
             )
             val points = state.points.map {
                 RunPoint(
@@ -286,6 +310,7 @@ class RunTrackingService : Service() {
             grade = grade,
             seconds = accepted.seconds,
             weightKg = weightKg,
+            mode = CalorieCalc.modeFor(current.activityType),
         )
 
         RunTracker.update { state ->
@@ -394,10 +419,13 @@ class RunTrackingService : Service() {
         val time = formatDuration(state.movingTimeMs)
         val pace = state.avgPaceSecPerKm?.let { formatPace(it) } ?: "--:--"
         val paused = state.status == RunStatus.PAUSED
+        val what = state.activityType.label.lowercase()
 
         val builder = NotificationCompat.Builder(this, Notifications.CHANNEL_RUN)
             .setSmallIcon(R.drawable.ic_stat_run)
-            .setContentTitle(if (paused) "Run paused — $km" else "Recording run — $km")
+            .setContentTitle(
+                if (paused) "${state.activityType.label} paused — $km" else "Recording $what — $km"
+            )
             .setContentText("$time  ·  $pace /km  ·  ${state.kcal.roundToInt()} kcal")
             .setOngoing(true)
             .setOnlyAlertOnce(true)

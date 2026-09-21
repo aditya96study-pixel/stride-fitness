@@ -38,7 +38,7 @@ import com.aditya.stride.ui.components.SeriesKind
 import com.aditya.stride.ui.components.TextField
 import com.aditya.stride.ui.components.TimeRow
 import com.aditya.stride.ui.components.ZoomableTimeChart
-import com.aditya.stride.ui.theme.SeriesCalOut
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.vm.ExerciseViewModel
 import java.time.LocalTime
 import java.time.ZoneId
@@ -89,7 +89,7 @@ fun ExerciseScreen(onBack: () -> Unit) {
                     Text(
                         "$dayTotal kcal logged on this day",
                         style = MaterialTheme.typography.titleSmall,
-                        color = SeriesCalOut,
+                        color = seriesPalette.calOut,
                     )
 
                     Spacer(Modifier.height(14.dp))
@@ -156,7 +156,7 @@ fun ExerciseScreen(onBack: () -> Unit) {
                     SaveButton(
                         text = "Save workout",
                         enabled = valid,
-                        accent = SeriesCalOut,
+                        accent = seriesPalette.calOut,
                         onClick = {
                             val timestamp = day.epochDayToLocalDate()
                                 .atTime(hour, minute)
@@ -189,7 +189,7 @@ fun ExerciseScreen(onBack: () -> Unit) {
                             subtitle = entry.timestamp.asTime() +
                                 if (entry.durationMin > 0) "  ·  ${entry.durationMin} min" else "",
                             trailing = "${entry.kcal} kcal",
-                            accent = SeriesCalOut,
+                            accent = seriesPalette.calOut,
                             onDelete = { vm.delete(entry) },
                         )
                     }
@@ -200,7 +200,7 @@ fun ExerciseScreen(onBack: () -> Unit) {
         item {
             SectionCard(title = "Burned per day", subtitle = "Manual entries only") {
                 ZoomableTimeChart(
-                    series = listOf(ChartSeries("Burned", SeriesCalOut, daily, SeriesKind.BAR)),
+                    series = listOf(ChartSeries("Burned", seriesPalette.calOut, daily, SeriesKind.BAR)),
                     valueLabel = { it.roundToInt().toString() },
                     unitSuffix = " kcal",
                     zeroBased = true,

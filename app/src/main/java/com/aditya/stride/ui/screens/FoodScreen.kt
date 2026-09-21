@@ -39,7 +39,7 @@ import com.aditya.stride.ui.components.SeriesKind
 import com.aditya.stride.ui.components.TextField
 import com.aditya.stride.ui.components.TimeRow
 import com.aditya.stride.ui.components.ZoomableTimeChart
-import com.aditya.stride.ui.theme.SeriesCalIn
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.vm.FoodViewModel
 import java.time.LocalTime
 import java.time.ZoneId
@@ -82,7 +82,7 @@ fun FoodScreen(onBack: () -> Unit) {
                         Text(
                             total.toString(),
                             style = MaterialTheme.typography.displaySmall,
-                            color = SeriesCalIn,
+                            color = seriesPalette.calIn,
                         )
                         Text(
                             " / ${profile.calorieGoal} kcal",
@@ -96,7 +96,7 @@ fun FoodScreen(onBack: () -> Unit) {
                         fraction = if (profile.calorieGoal > 0) {
                             total / profile.calorieGoal.toFloat()
                         } else 0f,
-                        accent = SeriesCalIn,
+                        accent = seriesPalette.calIn,
                     )
 
                     Spacer(Modifier.height(16.dp))
@@ -133,7 +133,7 @@ fun FoodScreen(onBack: () -> Unit) {
                     SaveButton(
                         text = "Add meal",
                         enabled = valid,
-                        accent = SeriesCalIn,
+                        accent = seriesPalette.calIn,
                         onClick = {
                             val timestamp = day.epochDayToLocalDate()
                                 .atTime(hour, minute)
@@ -158,7 +158,7 @@ fun FoodScreen(onBack: () -> Unit) {
                             title = entry.name,
                             subtitle = entry.timestamp.asTime(),
                             trailing = "${entry.kcal} kcal",
-                            accent = SeriesCalIn,
+                            accent = seriesPalette.calIn,
                             onDelete = { vm.delete(entry) },
                         )
                     }
@@ -169,14 +169,14 @@ fun FoodScreen(onBack: () -> Unit) {
         item {
             SectionCard(title = "Daily intake", subtitle = "Total calories per day") {
                 ZoomableTimeChart(
-                    series = listOf(ChartSeries("Eaten", SeriesCalIn, daily, SeriesKind.BAR)),
+                    series = listOf(ChartSeries("Eaten", seriesPalette.calIn, daily, SeriesKind.BAR)),
                     valueLabel = { it.roundToInt().toString() },
                     unitSuffix = " kcal",
                     zeroBased = true,
                     guide = ChartGuide(
                         profile.calorieGoal.toDouble(),
                         "target",
-                        SeriesCalIn,
+                        seriesPalette.calIn,
                     ),
                     chartHeight = 260.dp,
                     defaultWindowDays = 21f,

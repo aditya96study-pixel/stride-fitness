@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aditya.stride.data.ActivityType
+import com.aditya.stride.data.type
 import com.aditya.stride.tracking.RunStatus
 import com.aditya.stride.tracking.RunTracker
 import com.aditya.stride.tracking.RunTrackingService
@@ -49,14 +51,14 @@ import com.aditya.stride.tracking.formatPace
 import com.aditya.stride.ui.asClock
 import com.aditya.stride.ui.dayLabel
 import com.aditya.stride.ui.components.BigMetric
+import com.aditya.stride.ui.components.Chip
 import com.aditya.stride.ui.components.Hint
 import com.aditya.stride.ui.components.RouteCanvas
 import com.aditya.stride.ui.components.ScreenFrame
 import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.StatTile
 import com.aditya.stride.ui.oneDecimal
-import com.aditya.stride.ui.theme.SeriesCalOut
-import com.aditya.stride.ui.theme.SeriesDistance
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.theme.StatusCritical
 import com.aditya.stride.ui.theme.StatusGood
 import com.aditya.stride.ui.theme.StatusWarning
@@ -68,6 +70,8 @@ import kotlin.math.roundToInt
 fun RunScreen(
     onOpenRuns: () -> Unit,
     onOpenRun: (Long) -> Unit,
+    onOpenTreadmill: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
     val vm: RunHistoryViewModel = viewModel()
@@ -76,6 +80,9 @@ fun RunScreen(
     val runs by vm.runs.collectAsStateWithLifecycle()
 
     var permissionDenied by remember { mutableStateOf(false) }
+    // The equation to use is chosen before the first fix, because calories accumulate per
+    // fix. Only the GPS activities can be tracked; a treadmill session is typed in.
+    var mode by remember { mutableStateOf(ActivityType.RUN) }
 
     val permissions = remember {
         buildList {
@@ -92,7 +99,7 @@ fun RunScreen(
     ) { granted ->
         if (granted[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
             permissionDenied = false
-            RunTrackingService.send(context, RunTrackingService.ACTION_START)
+            RunTrackingService.send(context, RunTrackingService.ACTION_START, mode)
         } else {
             permissionDenied = true
         }
@@ -114,10 +121,16 @@ fun RunScreen(
     // Keep the display awake only while actually tracking.
     KeepScreenOn(enabled = state.isActive && profile.keepScreenOnDuringRun)
 
+    val shown = if (state.isActive || state.status == RunStatus.SAVING) {
+        state.activityType
+    } else {
+        mode
+    }
+
     ScreenFrame(
-        title = "Run",
+        title = "Activity",
         subtitle = when (state.status) {
-            RunStatus.TRACKING -> "Recording"
+            RunStatus.TRACKING -> "Recording ${shown.label.lowercase()}"
             RunStatus.PAUSED -> if (state.autoPaused) "Auto-paused" else "Paused"
             RunStatus.SAVING -> "Saving…"
             RunStatus.IDLE -> "GPS tracked distance, pace and calories"
@@ -126,8 +139,43 @@ fun RunScreen(
             TextButton(onClick = onOpenRuns) {
                 Text("History", style = MaterialTheme.typography.labelLarge)
             }
+            SettingsAction(onOpenSettings)
         },
     ) {
+        if (state.status == RunStatus.IDLE) {
+            item {
+                SectionCard(
+                    title = "What are you doing?",
+                    subtitle = "Pick before you start — it decides the calorie equation",
+                ) {
+                    Column {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActivityType.entries.filter { it.isGps }.forEach { type ->
+                                Chip(
+                                    label = type.label,
+                                    onClick = { mode = type },
+                                    selected = mode == type,
+                                )
+                            }
+                            Chip(label = "Treadmill", onClick = onOpenTreadmill)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Hint(
+                            when (mode) {
+                                ActivityType.WALK ->
+                                    "Walking burns less than running at the same pace, so " +
+                                        "walks are measured with the walking equation and " +
+                                        "kept apart in your history and charts."
+                                else ->
+                                    "Runs, walks and treadmill sessions each keep their own " +
+                                        "history and their own line on the Trends chart."
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         item {
             SectionCard {
                 Column {
@@ -138,7 +186,7 @@ fun RunScreen(
                         BigMetric(
                             value = state.distanceKm.twoDecimals(),
                             label = "kilometres",
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                         )
                         BigMetric(
                             value = state.movingTimeMs.asClock(),
@@ -152,21 +200,21 @@ fun RunScreen(
                             label = "Pace now",
                             value = state.currentPaceSecPerKm?.let { formatPace(it) } ?: "--:--",
                             unit = "/km",
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             label = "Avg pace",
                             value = state.avgPaceSecPerKm?.let { formatPace(it) } ?: "--:--",
                             unit = "/km",
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             label = "Speed",
                             value = (state.currentSpeedMps * 3.6f).toDouble().oneDecimal(),
                             unit = "km/h",
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -176,20 +224,20 @@ fun RunScreen(
                             label = "Calories",
                             value = state.kcal.roundToInt().toString(),
                             unit = "kcal",
-                            accent = SeriesCalOut,
+                            accent = seriesPalette.calOut,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             label = "Climb",
                             value = state.elevationGainM.roundToInt().toString(),
                             unit = "m",
-                            accent = SeriesCalOut,
+                            accent = seriesPalette.calOut,
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             label = "Elapsed",
                             value = state.elapsedTimeMs.asClock(),
-                            accent = SeriesCalOut,
+                            accent = seriesPalette.calOut,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -207,7 +255,7 @@ fun RunScreen(
                             onClick = {
                                 if (hasLocation()) {
                                     RunTrackingService.send(
-                                        context, RunTrackingService.ACTION_START
+                                        context, RunTrackingService.ACTION_START, mode
                                     )
                                 } else {
                                     launcher.launch(permissions)
@@ -218,11 +266,14 @@ fun RunScreen(
                                 .height(56.dp),
                             shape = RoundedCornerShape(15.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = SeriesDistance,
+                                containerColor = seriesPalette.distance,
                                 contentColor = androidx.compose.ui.graphics.Color.White,
                             ),
                         ) {
-                            Text("Start run", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Start ${mode.label.lowercase()}",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                         }
                         Spacer(Modifier.height(10.dp))
                         Hint(
@@ -281,7 +332,7 @@ fun RunScreen(
                                     .height(54.dp),
                                 shape = RoundedCornerShape(15.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = SeriesDistance,
+                                    containerColor = seriesPalette.distance,
                                     contentColor = androidx.compose.ui.graphics.Color.White,
                                 ),
                             ) {
@@ -320,7 +371,7 @@ fun RunScreen(
                     RouteCanvas(
                         latitudes = state.points.map { it.lat },
                         longitudes = state.points.map { it.lon },
-                        color = SeriesDistance,
+                        color = seriesPalette.distance,
                     )
                 }
             }
@@ -362,7 +413,7 @@ fun RunScreen(
         if (state.status == RunStatus.IDLE && runs.isNotEmpty()) {
             item {
                 SectionCard(
-                    title = "Recent runs",
+                    title = "Recent sessions",
                     trailing = {
                         TextButton(onClick = onOpenRuns) { Text("See all") }
                     },
@@ -370,11 +421,12 @@ fun RunScreen(
                     Column {
                         runs.take(4).forEach { run ->
                             com.aditya.stride.ui.components.EntryRow(
-                                title = (run.distanceM / 1000.0).twoDecimals() + " km",
+                                title = run.type.label + "  ·  " +
+                                    (run.distanceM / 1000.0).twoDecimals() + " km",
                                 subtitle = run.epochDay.dayLabel() + "  ·  " +
                                     run.movingTimeMs.asClock(),
                                 trailing = "${run.kcal} kcal",
-                                accent = SeriesDistance,
+                                accent = colourFor(run.type),
                                 onClick = { onOpenRun(run.id) },
                             )
                         }
@@ -437,4 +489,12 @@ private fun KeepScreenOn(enabled: Boolean) {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
+}
+
+/** One colour per activity, matching the Trends chart so the two never disagree. */
+@Composable
+fun colourFor(type: ActivityType) = when (type) {
+    ActivityType.RUN -> seriesPalette.run
+    ActivityType.WALK -> seriesPalette.walk
+    ActivityType.TREADMILL -> seriesPalette.treadmill
 }

@@ -51,8 +51,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aditya.stride.ui.theme.AxisLine
-import com.aditya.stride.ui.theme.GridLine
+import com.aditya.stride.ui.theme.seriesPalette
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -150,6 +149,7 @@ private fun ChartBody(
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val colors = MaterialTheme.colorScheme
+    val palette = seriesPalette
 
     val axisLabelStyle = TextStyle(fontSize = 10.5.sp, color = colors.onSurfaceVariant)
     val tooltipTitleStyle = TextStyle(
@@ -313,6 +313,8 @@ private fun ChartBody(
                 tooltipValueStyle = tooltipValueStyle,
                 surfaceColor = colors.surfaceContainerHigh,
                 outlineColor = colors.outline,
+                gridColor = palette.grid,
+                axisColor = palette.axis,
                 gutterPx = with(density) { Y_GUTTER.toPx() },
                 axisHeightPx = with(density) { X_AXIS_HEIGHT.toPx() },
             )
@@ -347,6 +349,10 @@ private fun DrawScope.drawChart(
     tooltipValueStyle: TextStyle,
     surfaceColor: Color,
     outlineColor: Color,
+    // Chart ink is passed in rather than read from a global: it is white-on-dark in one
+    // theme and black-on-light in the other, and DrawScope is not a composable scope.
+    gridColor: Color,
+    axisColor: Color,
     gutterPx: Float,
     axisHeightPx: Float,
 ) {
@@ -389,7 +395,7 @@ private fun DrawScope.drawChart(
     ticks.values.forEach { t ->
         val y = yOf(t)
         if (y < plotTop - 1 || y > plotBottom + 1) return@forEach
-        drawLine(GridLine, Offset(plotLeft, y), Offset(plotRight, y), strokeWidth = 1f)
+        drawLine(gridColor, Offset(plotLeft, y), Offset(plotRight, y), strokeWidth = 1f)
         val layout: TextLayoutResult =
             measurer.measure(t.trimDecimals(ticks.decimals), axisLabelStyle)
         drawText(
@@ -399,7 +405,7 @@ private fun DrawScope.drawChart(
     }
 
     // baseline
-    drawLine(AxisLine, Offset(plotLeft, plotBottom), Offset(plotRight, plotBottom), 1.2f)
+    drawLine(axisColor, Offset(plotLeft, plotBottom), Offset(plotRight, plotBottom), 1.2f)
 
     // ---- x labels ----
     val xTicks = dateTicks(startDay, spanDays)
@@ -409,7 +415,7 @@ private fun DrawScope.drawChart(
         val x = xOf(day)
         if (x < plotLeft - 20 || x > plotRight + 20) return@forEach
         drawLine(
-            GridLine.copy(alpha = 0.55f),
+            gridColor.copy(alpha = 0.55f),
             Offset(x, plotTop),
             Offset(x, plotBottom),
             strokeWidth = 1f,

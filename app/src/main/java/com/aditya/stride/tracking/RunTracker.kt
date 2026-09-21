@@ -1,5 +1,6 @@
 package com.aditya.stride.tracking
 
+import com.aditya.stride.data.ActivityType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,12 @@ data class Split(
 
 data class RunState(
     val status: RunStatus = RunStatus.IDLE,
+    /**
+     * Chosen before the first fix, because the calorie maths runs per fix and walking and
+     * running are different equations. Only the GPS types ever appear here; a treadmill
+     * entry is typed in rather than tracked.
+     */
+    val activityType: ActivityType = ActivityType.RUN,
     val distanceM: Double = 0.0,
     val movingTimeMs: Long = 0,
     val elapsedTimeMs: Long = 0,

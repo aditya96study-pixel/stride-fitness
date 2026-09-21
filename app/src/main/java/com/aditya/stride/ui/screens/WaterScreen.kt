@@ -36,7 +36,7 @@ import com.aditya.stride.ui.components.SeriesKind
 import com.aditya.stride.ui.components.TimeRow
 import com.aditya.stride.ui.components.ZoomableTimeChart
 import com.aditya.stride.ui.oneDecimal
-import com.aditya.stride.ui.theme.SeriesWater
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.vm.WaterViewModel
 import java.time.LocalTime
 import java.time.ZoneId
@@ -82,7 +82,7 @@ fun WaterScreen(onBack: () -> Unit) {
                         Text(
                             total.oneDecimal(),
                             style = MaterialTheme.typography.displaySmall,
-                            color = SeriesWater,
+                            color = seriesPalette.water,
                         )
                         Text(
                             " / ${profile.waterGoalL.oneDecimal()} L",
@@ -96,7 +96,7 @@ fun WaterScreen(onBack: () -> Unit) {
                         fraction = if (profile.waterGoalL > 0) {
                             (total / profile.waterGoalL).toFloat()
                         } else 0f,
-                        accent = SeriesWater,
+                        accent = seriesPalette.water,
                     )
 
                     Spacer(Modifier.height(16.dp))
@@ -130,7 +130,7 @@ fun WaterScreen(onBack: () -> Unit) {
                     SaveButton(
                         text = "Add",
                         enabled = valid,
-                        accent = SeriesWater,
+                        accent = seriesPalette.water,
                         onClick = {
                             vm.add(parsed!!, timestampFor())
                             litresText = ""
@@ -143,11 +143,11 @@ fun WaterScreen(onBack: () -> Unit) {
         item {
             SectionCard(title = "Consistency", subtitle = "Litres per day against your target") {
                 ZoomableTimeChart(
-                    series = listOf(ChartSeries("Water", SeriesWater, daily, SeriesKind.BAR)),
+                    series = listOf(ChartSeries("Water", seriesPalette.water, daily, SeriesKind.BAR)),
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " L",
                     zeroBased = true,
-                    guide = ChartGuide(profile.waterGoalL, "target", SeriesWater),
+                    guide = ChartGuide(profile.waterGoalL, "target", seriesPalette.water),
                     chartHeight = 260.dp,
                     defaultWindowDays = 28f,
                     emptyMessage = "Add water to start the chart",
@@ -164,7 +164,7 @@ fun WaterScreen(onBack: () -> Unit) {
                             title = entry.liters.oneDecimal() + " L",
                             subtitle = entry.timestamp.asTime(),
                             trailing = "",
-                            accent = SeriesWater,
+                            accent = seriesPalette.water,
                             onDelete = { vm.delete(entry) },
                         )
                     }

@@ -45,19 +45,17 @@ import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.TextField
 import com.aditya.stride.ui.components.TimePickerDialog
 import com.aditya.stride.ui.formatHourMinute
-import com.aditya.stride.ui.theme.SeriesCalIn
-import com.aditya.stride.ui.theme.SeriesCalOut
-import com.aditya.stride.ui.theme.SeriesWater
-import com.aditya.stride.ui.theme.SeriesWeight
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.theme.StatusGood
 
 private val dayLetters = listOf("M", "T", "W", "T", "F", "S", "S")
 
+@Composable
 private fun accentFor(kind: ReminderKind) = when (kind) {
-    ReminderKind.FOOD -> SeriesCalIn
-    ReminderKind.WATER -> SeriesWater
-    ReminderKind.WEIGHT -> SeriesWeight
-    ReminderKind.EXERCISE -> SeriesCalOut
+    ReminderKind.FOOD -> seriesPalette.calIn
+    ReminderKind.WATER -> seriesPalette.water
+    ReminderKind.WEIGHT -> seriesPalette.weight
+    ReminderKind.EXERCISE -> seriesPalette.calOut
     ReminderKind.GENERAL -> StatusGood
 }
 

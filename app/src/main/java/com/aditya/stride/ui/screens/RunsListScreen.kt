@@ -16,7 +16,7 @@ import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.SeriesKind
 import com.aditya.stride.ui.components.ZoomableTimeChart
 import com.aditya.stride.ui.dayLabel
-import com.aditya.stride.ui.theme.SeriesDistance
+import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.twoDecimals
 import com.aditya.stride.ui.vm.RunHistoryViewModel
 
@@ -37,7 +37,7 @@ fun RunsListScreen(onBack: () -> Unit, onOpenRun: (Long) -> Unit) {
             SectionCard(title = "Distance per day") {
                 ZoomableTimeChart(
                     series = listOf(
-                        ChartSeries("Distance", SeriesDistance, distanceDaily, SeriesKind.BAR)
+                        ChartSeries("Distance", seriesPalette.distance, distanceDaily, SeriesKind.BAR)
                     ),
                     valueLabel = { it.twoDecimals() },
                     unitSuffix = " km",
@@ -65,7 +65,7 @@ fun RunsListScreen(onBack: () -> Unit, onOpenRun: (Long) -> Unit) {
                             subtitle = run.epochDay.dayLabel() + "  ·  " +
                                 run.movingTimeMs.asClock() + "  ·  ${run.kcal} kcal",
                             trailing = "",
-                            accent = SeriesDistance,
+                            accent = seriesPalette.distance,
                             onClick = { onOpenRun(run.id) },
                         )
                     }

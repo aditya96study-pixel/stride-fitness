@@ -11,6 +11,7 @@ import com.aditya.stride.data.Reminder
 import com.aditya.stride.data.Repository
 import com.aditya.stride.data.RunPoint
 import com.aditya.stride.data.RunSession
+import com.aditya.stride.data.ThemeMode
 import com.aditya.stride.data.WaterEntry
 import com.aditya.stride.data.WeightEntry
 import com.aditya.stride.data.today
@@ -203,12 +204,77 @@ class RunHistoryViewModel(app: Application) : StrideViewModel(app) {
     }
 }
 
+/**
+ * Treadmill sessions are typed in rather than tracked, so this writes a session with no
+ * GPS points. It shares [RunSession] with outdoor activities on purpose — the per-day
+ * calorie query then counts every session exactly once.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class TreadmillViewModel(app: Application) : StrideViewModel(app) {
+    val selectedDay = MutableStateFlow(today())
+
+    val dayEntries: StateFlow<List<RunSession>> =
+        selectedDay.flatMapLatest { repo.runs.observeForDay(it) }.state(emptyList())
+
+    val latestWeight: StateFlow<WeightEntry?> = repo.weight.observeLatest().state(null)
+
+    fun shiftDay(days: Long) {
+        selectedDay.value += days
+    }
+
+    fun add(
+        distanceKm: Double,
+        minutes: Double,
+        inclinePercent: Double,
+        kcal: Int,
+        kcalAuto: Int,
+        startTime: Long,
+        note: String?,
+    ) = viewModelScope.launch {
+        repo.addTreadmillSession(
+            distanceM = distanceKm * 1000.0,
+            minutes = minutes,
+            inclinePercent = inclinePercent,
+            kcal = kcal,
+            kcalAuto = kcalAuto,
+            startTime = startTime,
+            note = note,
+        )
+    }
+
+    fun delete(session: RunSession) = viewModelScope.launch { repo.runs.deleteSession(session) }
+}
+
 class SettingsViewModel(app: Application) : StrideViewModel(app) {
     val reminders: StateFlow<List<Reminder>> = repo.reminders.observeAll().state(emptyList())
     val latestWeight: StateFlow<WeightEntry?> = repo.weight.observeLatest().state(null)
 
     fun saveProfile(profile: Profile) = viewModelScope.launch {
         repo.profileStore.save(profile.copy(onboarded = true))
+    }
+
+    // One setting at a time. Going through saveProfile would rewrite every key from
+    // whatever Profile the caller happened to be holding, which is how a toggle used to
+    // discard text the user had typed but not yet saved.
+
+    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch {
+        repo.profileStore.setThemeMode(mode)
+    }
+
+    fun setAutoPause(value: Boolean) = viewModelScope.launch {
+        repo.profileStore.setAutoPause(value)
+    }
+
+    fun setKeepScreenOn(value: Boolean) = viewModelScope.launch {
+        repo.profileStore.setKeepScreenOn(value)
+    }
+
+    fun setGpsGate(value: Float) = viewModelScope.launch {
+        repo.profileStore.setGpsAccuracyGateM(value)
+    }
+
+    fun setSnoozeMinutes(value: Int) = viewModelScope.launch {
+        repo.profileStore.setSnoozeMinutes(value)
     }
 
     fun upsertReminder(reminder: Reminder) = viewModelScope.launch {

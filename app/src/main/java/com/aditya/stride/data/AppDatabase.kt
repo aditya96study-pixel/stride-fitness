@@ -49,13 +49,16 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE run_sessions ADD COLUMN inclinePercent REAL NOT NULL DEFAULT 0"
                 )
+                // No column default here, unlike the two ALTERs above: those need one to
+                // backfill existing rows, while this table starts empty. Leaving it off
+                // means a migrated database and a fresh install have identical DDL.
                 db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS training_days (
                         epochDay INTEGER NOT NULL,
                         trained INTEGER NOT NULL,
                         percentPlanned INTEGER,
-                        source TEXT NOT NULL DEFAULT 'MANUAL',
+                        source TEXT NOT NULL,
                         note TEXT,
                         PRIMARY KEY(epochDay)
                     )
