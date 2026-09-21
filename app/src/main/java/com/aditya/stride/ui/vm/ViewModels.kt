@@ -17,6 +17,9 @@ import com.aditya.stride.data.TrainingDay
 import com.aditya.stride.data.WaterEntry
 import com.aditya.stride.data.WeightEntry
 import com.aditya.stride.data.today
+import com.aditya.stride.export.CsvImporter
+import com.aditya.stride.export.ImportBundle
+import com.aditya.stride.export.ImportResult
 import com.aditya.stride.notify.ReminderScheduler
 import com.aditya.stride.tracking.CalorieCalc
 import com.aditya.stride.ui.components.ChartPoint
@@ -356,4 +359,58 @@ class SettingsViewModel(app: Application) : StrideViewModel(app) {
             ReminderScheduler.cancel(getApplication<Application>(), updated)
         }
     }
+
+    // ---------------- CSV import ----------------
+
+    /** Null until a file has been read. While it is set, the screen shows the confirmation. */
+    private val _pendingImport = MutableStateFlow<ImportResult?>(null)
+    val pendingImport: StateFlow<ImportResult?> = _pendingImport
+
+    private val _importMessage = MutableStateFlow<String?>(null)
+    val importMessage: StateFlow<String?> = _importMessage
+
+    /** How many entries would be replaced, so the dialog can state the trade both ways. */
+    private val _existingCount = MutableStateFlow(0)
+    val existingCount: StateFlow<Int> = _existingCount
+
+    /**
+     * Reads and judges the file. Nothing is written here: the user still has to agree, and
+     * a file that cannot be trusted is refused before the database is written to at all.
+     */
+    fun readImport(uri: android.net.Uri) = viewModelScope.launch {
+        _importMessage.value = null
+        _existingCount.value = countExisting()
+        _pendingImport.value = CsvImporter.read(getApplication(), uri)
+    }
+
+    fun dismissImport() {
+        _pendingImport.value = null
+    }
+
+    fun applyImport(bundle: ImportBundle) = viewModelScope.launch {
+        _pendingImport.value = null
+        runCatching { CsvImporter.apply(getApplication(), bundle) }
+            .onSuccess {
+                _importMessage.value = buildString {
+                    append("Imported ${bundle.entryCount} entries.")
+                    if (bundle.legacy) {
+                        append(" Read from an older export, so some run detail is approximate.")
+                    }
+                }
+            }
+            .onFailure {
+                _importMessage.value = "The import failed and nothing was changed: " +
+                    (it.message ?: "unknown error")
+            }
+    }
+
+    fun clearImportMessage() {
+        _importMessage.value = null
+    }
+
+    private suspend fun countExisting(): Int =
+        repo.weight.allForExport().size + repo.meals.allForExport().size +
+            repo.water.allForExport().size + repo.exercise.allForExport().size +
+            repo.runs.allForExport().size + repo.training.allForExport().size +
+            repo.reminders.allForExport().size
 }

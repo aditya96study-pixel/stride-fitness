@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,11 +36,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aditya.stride.BuildConfig
 import com.aditya.stride.data.ThemeMode
 import com.aditya.stride.export.CsvExporter
+import com.aditya.stride.export.ImportResult
 import com.aditya.stride.ui.components.Chip
 import com.aditya.stride.ui.components.Hint
 import com.aditya.stride.ui.components.SaveButton
 import com.aditya.stride.ui.components.ScreenFrame
 import com.aditya.stride.ui.components.SectionCard
+import com.aditya.stride.ui.theme.StatusCritical
 import com.aditya.stride.ui.theme.seriesPalette
 import com.aditya.stride.ui.vm.SettingsViewModel
 import kotlinx.coroutines.launch
@@ -55,6 +59,9 @@ fun SettingsScreen(
     val vm: SettingsViewModel = viewModel()
     val profile by vm.profile.collectAsStateWithLifecycle()
     val reminders by vm.reminders.collectAsStateWithLifecycle()
+    val pendingImport by vm.pendingImport.collectAsStateWithLifecycle()
+    val importMessage by vm.importMessage.collectAsStateWithLifecycle()
+    val existingCount by vm.existingCount.collectAsStateWithLifecycle()
 
     var exportMessage by remember { mutableStateOf<String?>(null) }
 
@@ -68,6 +75,13 @@ fun SettingsScreen(
             }
         }
     }
+
+    // Any readable text file may be a Stride export, and some file pickers report a CSV
+    // as text/plain or with no type at all, so the filter stays wide and the parser
+    // decides.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) vm.readImport(uri) }
 
     ScreenFrame(title = "Settings", onBack = onBack) {
         item {
@@ -207,6 +221,28 @@ fun SettingsScreen(
                         Spacer(Modifier.height(8.dp))
                         Hint(it)
                     }
+
+                    Spacer(Modifier.height(14.dp))
+                    SaveButton(
+                        text = "Import from CSV",
+                        enabled = true,
+                        accent = seriesPalette.water,
+                        onClick = {
+                            importLauncher.launch(
+                                arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*")
+                            )
+                        },
+                    )
+                    importMessage?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Hint(it)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Hint(
+                        "Importing replaces everything currently in the app. Route maps are " +
+                            "not part of the file, so restored sessions keep every figure but " +
+                            "lose their map."
+                    )
                 }
             }
         }
@@ -224,6 +260,92 @@ fun SettingsScreen(
             }
         }
     }
+
+    pendingImport?.let { result ->
+        ImportDialog(
+            result = result,
+            existingCount = existingCount,
+            onDismiss = { vm.dismissImport() },
+            onConfirm = {
+                (result as? ImportResult.Ready)?.let { vm.applyImport(it.bundle) }
+                    ?: vm.dismissImport()
+            },
+        )
+    }
+}
+
+@Composable
+private fun ImportDialog(
+    result: ImportResult,
+    existingCount: Int,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    when (result) {
+        is ImportResult.Rejected -> AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("That file was not imported") },
+            text = {
+                Column {
+                    Text(result.reason)
+                    if (result.errors.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Hint(result.errors.firstFiveLines())
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Hint("Nothing in the app has been changed.")
+                }
+            },
+            confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        )
+
+        is ImportResult.Ready -> AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Replace everything?") },
+            text = {
+                Column {
+                    // Both numbers, so the size of what is being given up is visible.
+                    Text(
+                        "This replaces $existingCount existing " +
+                            (if (existingCount == 1) "entry" else "entries") +
+                            " with ${result.bundle.entryCount} from the file. It cannot be undone."
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Hint("GPS routes are not stored in a CSV, so restored sessions have no map.")
+                    if (result.bundle.legacy) {
+                        Spacer(Modifier.height(8.dp))
+                        Hint(
+                            "This is an export from an older version. Its runs keep distance, " +
+                                "time and calories, but some figures are read back from text " +
+                                "and are approximate."
+                        )
+                    }
+                    if (result.errors.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Hint(
+                            "${result.errors.size} " +
+                                (if (result.errors.size == 1) "row" else "rows") +
+                                " could not be read and will be skipped:\n" +
+                                result.errors.firstFiveLines()
+                        )
+                    }
+                    if (result.ignored > 0) {
+                        Spacer(Modifier.height(8.dp))
+                        Hint("${result.ignored} rows of a kind this version does not know were ignored.")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirm) { Text("Replace", color = StatusCritical) }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        )
+    }
+}
+
+private fun List<com.aditya.stride.export.RowError>.firstFiveLines(): String {
+    val shown = take(5).joinToString("\n") { "line ${it.line}: ${it.reason}" }
+    return if (size > 5) "$shown\n… and ${size - 5} more" else shown
 }
 
 @Composable
