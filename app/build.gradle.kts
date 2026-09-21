@@ -13,8 +13,10 @@ android {
         applicationId = "com.aditya.stride"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Must increase, and must stay the same applicationId: this release has to install
+        // over v1 as an update so the existing database is migrated rather than stranded.
+        versionCode = 2
+        versionName = "2.0"
         vectorDrawables { useSupportLibrary = true }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

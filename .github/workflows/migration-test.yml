@@ -1,0 +1,78 @@
+name: Migration test
+
+# The one unrecoverable failure in this app is losing the data already on the phone, and
+# the only automated check for that is an instrumented test -- MigrationTestHelper needs a
+# real SQLite, so it cannot run as a JVM unit test. It lives in its own workflow rather
+# than in the APK build: an emulator is slow and occasionally flaky, and a flake there
+# must never stop an APK from being published.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "app/src/main/java/com/aditya/stride/data/**"
+      - "app/src/androidTest/**"
+      - "app/schemas/**"
+      - "app/build.gradle.kts"
+      - ".github/workflows/migration-test.yml"
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    name: Room migration against the recorded v1 schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the project
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Make the wrapper executable
+        run: chmod +x gradlew
+
+      # Hardware acceleration is what makes an emulator on a hosted runner tolerable
+      # rather than a 40-minute wait.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the migration test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: >-
+            ./gradlew :app:connectedDebugAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.class=com.aditya.stride.data.MigrationTest
+            --no-daemon
+
+      - name: Upload the test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-test-report
+          path: app/build/reports/androidTests/
+          if-no-files-found: ignore
+          retention-days: 14
