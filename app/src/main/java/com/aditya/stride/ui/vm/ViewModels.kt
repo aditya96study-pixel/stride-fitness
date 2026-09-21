@@ -380,7 +380,7 @@ class SettingsViewModel(app: Application) : StrideViewModel(app) {
     fun readImport(uri: android.net.Uri) = viewModelScope.launch {
         _importMessage.value = null
         _existingCount.value = countExisting()
-        _pendingImport.value = CsvImporter.read(getApplication(), uri)
+        _pendingImport.value = CsvImporter.read(getApplication<Application>(), uri)
     }
 
     fun dismissImport() {
@@ -389,7 +389,7 @@ class SettingsViewModel(app: Application) : StrideViewModel(app) {
 
     fun applyImport(bundle: ImportBundle) = viewModelScope.launch {
         _pendingImport.value = null
-        runCatching { CsvImporter.apply(getApplication(), bundle) }
+        runCatching { CsvImporter.apply(getApplication<Application>(), bundle) }
             .onSuccess {
                 _importMessage.value = buildString {
                     append("Imported ${bundle.entryCount} entries.")
