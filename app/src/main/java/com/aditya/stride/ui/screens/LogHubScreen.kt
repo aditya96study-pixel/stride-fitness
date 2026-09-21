@@ -60,8 +60,8 @@ fun LogHubScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                         seriesPalette.weight,
                     ) { onOpen(Routes.WEIGHT) }
                     HubRow(
-                        "Workouts",
-                        "Weight training and anything else you burn",
+                        "Training",
+                        "Whether you trained, and the calories it burned",
                         Icons.Rounded.FitnessCenter,
                         seriesPalette.calOut,
                     ) { onOpen(Routes.EXERCISE) }

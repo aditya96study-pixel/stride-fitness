@@ -17,9 +17,22 @@ import java.time.ZoneId
  */
 object ReminderScheduler {
 
+    const val ACTION_REMIND = "com.aditya.stride.REMIND"
+    const val ACTION_SNOOZE_FIRE = "com.aditya.stride.SNOOZE_FIRE"
+
+    /**
+     * Snooze alarms are kept in a separate PendingIntent space from the daily ones.
+     *
+     * [schedule] cancels before it re-arms, and cancel matches on request code, action
+     * and data — so a snooze sharing any of those with its reminder would be silently
+     * cancelled the moment the daily alarm was re-armed, which happens on the very fire
+     * the snooze came from.
+     */
+    private const val SNOOZE_REQUEST_OFFSET = 100_000
+
     private fun intentFor(context: Context, reminder: Reminder): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
-            action = "com.aditya.stride.REMIND"
+            action = ACTION_REMIND
             putExtra(ReminderReceiver.EXTRA_ID, reminder.id)
             putExtra(ReminderReceiver.EXTRA_LABEL, reminder.label)
             putExtra(ReminderReceiver.EXTRA_KIND, reminder.kind)
@@ -56,6 +69,37 @@ object ReminderScheduler {
     fun cancel(context: Context, reminder: Reminder) {
         val manager = context.getSystemService<AlarmManager>() ?: return
         manager.cancel(intentFor(context, reminder))
+    }
+
+    /**
+     * Push this reminder's notification back by [minutes]. The alarm it fires carries a
+     * flag telling the receiver not to re-arm the daily alarm again: the original fire
+     * already did that, and a second re-arm would walk the whole chain a day forward.
+     */
+    fun snooze(context: Context, id: Long, label: String, kind: String, minutes: Int) {
+        val manager = context.getSystemService<AlarmManager>() ?: return
+        val intent = Intent(context, ReminderReceiver::class.java).apply {
+            action = ACTION_SNOOZE_FIRE
+            putExtra(ReminderReceiver.EXTRA_ID, id)
+            putExtra(ReminderReceiver.EXTRA_LABEL, label)
+            putExtra(ReminderReceiver.EXTRA_KIND, kind)
+            putExtra(ReminderReceiver.EXTRA_SNOOZED, true)
+            data = android.net.Uri.parse("stride://snooze/$id")
+        }
+        val pending = PendingIntent.getBroadcast(
+            context,
+            (id + SNOOZE_REQUEST_OFFSET).toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val at = System.currentTimeMillis() + minutes.coerceIn(1, 240) * 60_000L
+        val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            manager.canScheduleExactAlarms()
+        if (canExact) {
+            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        } else {
+            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        }
     }
 
     suspend fun rescheduleAll(context: Context) {

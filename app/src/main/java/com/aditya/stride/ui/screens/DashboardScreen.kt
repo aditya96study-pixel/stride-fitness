@@ -218,7 +218,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                         QuickAction("Weight", Icons.Rounded.MonitorWeight, seriesPalette.weight, Modifier.weight(1f)) {
                             onOpen(Routes.WEIGHT)
                         }
-                        QuickAction("Workout", Icons.Rounded.FitnessCenter, seriesPalette.calOut, Modifier.weight(1f)) {
+                        QuickAction("Training", Icons.Rounded.FitnessCenter, seriesPalette.calOut, Modifier.weight(1f)) {
                             onOpen(Routes.EXERCISE)
                         }
                     }

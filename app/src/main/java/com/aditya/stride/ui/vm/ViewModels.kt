@@ -13,6 +13,7 @@ import com.aditya.stride.data.Repository
 import com.aditya.stride.data.RunPoint
 import com.aditya.stride.data.RunSession
 import com.aditya.stride.data.ThemeMode
+import com.aditya.stride.data.TrainingDay
 import com.aditya.stride.data.WaterEntry
 import com.aditya.stride.data.WeightEntry
 import com.aditya.stride.data.today
@@ -183,6 +184,17 @@ class ExerciseViewModel(app: Application) : StrideViewModel(app) {
 
     val latestWeight: StateFlow<WeightEntry?> = repo.weight.observeLatest().state(null)
 
+    /** The "did you train?" answer for whichever day the navigator is on. */
+    val trainingDay: StateFlow<TrainingDay?> =
+        selectedDay.flatMapLatest { repo.training.observeDay(it) }.state(null)
+
+    /**
+     * A year of answers, which is the longest window any figure on this screen needs.
+     * One query feeding three windows beats three queries.
+     */
+    val trainingYear: StateFlow<List<TrainingDay>> =
+        dayFlow.flatMapLatest { repo.training.observeSince(it - 365) }.state(emptyList())
+
     fun shiftDay(days: Long) {
         selectedDay.value += days
     }
@@ -193,6 +205,14 @@ class ExerciseViewModel(app: Application) : StrideViewModel(app) {
         }
 
     fun delete(entry: ExerciseEntry) = viewModelScope.launch { repo.exercise.delete(entry) }
+
+    fun setTrained(trained: Boolean, percentPlanned: Int?) = viewModelScope.launch {
+        repo.setTrainingDay(selectedDay.value, trained, percentPlanned)
+    }
+
+    fun clearTrainingAnswer() = viewModelScope.launch {
+        repo.training.observeDay(selectedDay.value).first()?.let { repo.training.delete(it) }
+    }
 }
 
 class RunHistoryViewModel(app: Application) : StrideViewModel(app) {

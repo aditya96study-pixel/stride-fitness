@@ -170,7 +170,7 @@ enum class ReminderKind(val title: String) {
     FOOD("Log food"),
     WATER("Log water"),
     WEIGHT("Log weight"),
-    EXERCISE("Log exercise"),
+    EXERCISE("Log training"),
     GENERAL("Reminder"),
 }
 

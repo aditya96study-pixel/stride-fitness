@@ -21,8 +21,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aditya.stride.data.averagePercentPlanned
 import com.aditya.stride.data.epochDayToLocalDate
+import com.aditya.stride.data.sessionsPerWeek
 import com.aditya.stride.data.today
+import com.aditya.stride.data.trainedThisWeek
 import com.aditya.stride.tracking.CalorieCalc
 import com.aditya.stride.ui.asTime
 import com.aditya.stride.ui.components.ChartSeries
@@ -35,6 +38,7 @@ import com.aditya.stride.ui.components.SaveButton
 import com.aditya.stride.ui.components.ScreenFrame
 import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.SeriesKind
+import com.aditya.stride.ui.components.StatTile
 import com.aditya.stride.ui.components.TextField
 import com.aditya.stride.ui.components.TimeRow
 import com.aditya.stride.ui.components.ZoomableTimeChart
@@ -52,6 +56,8 @@ fun ExerciseScreen(onBack: () -> Unit) {
     val daily by vm.daily.collectAsStateWithLifecycle()
     val profile by vm.profile.collectAsStateWithLifecycle()
     val latestWeight by vm.latestWeight.collectAsStateWithLifecycle()
+    val trainingDay by vm.trainingDay.collectAsStateWithLifecycle()
+    val trainingYear by vm.trainingYear.collectAsStateWithLifecycle()
 
     val weightKg = latestWeight?.weightKg ?: profile.fallbackWeightKg
 
@@ -72,13 +78,18 @@ fun ExerciseScreen(onBack: () -> Unit) {
         if (durationMin > 0) CalorieCalc.metKcal(met, durationMin.toDouble(), weightKg) else null
     }
 
+    val endDay = today()
+
     ScreenFrame(
-        title = "Workouts",
-        subtitle = "Calories burned outside running",
+        title = "Training",
+        subtitle = "Whether you trained, and what it cost you",
         onBack = onBack,
     ) {
         item {
-            SectionCard(title = "Log a workout") {
+            SectionCard(
+                title = "Did you train?",
+                subtitle = "One answer per day — back-fill with the arrows below",
+            ) {
                 Column {
                     DayNavigator(
                         epochDay = day,
@@ -86,6 +97,131 @@ fun ExerciseScreen(onBack: () -> Unit) {
                         canGoForward = day < today(),
                     )
                     Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip(
+                            label = "Yes",
+                            onClick = { vm.setTrained(true, trainingDay?.percentPlanned) },
+                            selected = trainingDay?.trained == true,
+                        )
+                        Chip(
+                            label = "No",
+                            onClick = { vm.setTrained(false, null) },
+                            selected = trainingDay?.trained == false,
+                        )
+                        if (trainingDay != null) {
+                            Chip(label = "Clear", onClick = { vm.clearTrainingAnswer() })
+                        }
+                    }
+
+                    if (trainingDay?.trained == true) {
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            "How much of the planned session did you finish?",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(25, 50, 75, 100).forEach { percent ->
+                                Chip(
+                                    label = "$percent%",
+                                    onClick = { vm.setTrained(true, percent) },
+                                    selected = trainingDay?.percentPlanned == percent,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        // Chips cover the answers people actually give; the field is for
+                        // the odd 40% without making every entry a slider drag.
+                        NumberField(
+                            value = trainingDay?.percentPlanned?.toString().orEmpty(),
+                            onValueChange = { text ->
+                                text.toIntOrNull()?.takeIf { it in 0..100 }?.let {
+                                    vm.setTrained(true, it)
+                                }
+                            },
+                            label = "Or type a percentage",
+                            suffix = "%",
+                            decimal = false,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (trainingDay?.percentPlanned == null) {
+                            Spacer(Modifier.height(8.dp))
+                            Hint(
+                                "Marked from a logged workout. Tap a percentage to say how " +
+                                    "much of it you finished."
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionCard(
+                title = "Consistency",
+                subtitle = "Trained days per week, as a moving average",
+            ) {
+                Column {
+                    Row(Modifier.fillMaxWidth()) {
+                        StatTile(
+                            "This week",
+                            trainingYear.trainedThisWeek(endDay).toString(),
+                            "days",
+                            seriesPalette.calOut,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatTile(
+                            "1 month",
+                            trainingYear.sessionsPerWeek(30, endDay).oneDecimal(),
+                            "/week",
+                            seriesPalette.calOut,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        StatTile(
+                            "6 months",
+                            trainingYear.sessionsPerWeek(182, endDay).oneDecimal(),
+                            "/week",
+                            seriesPalette.calOut,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatTile(
+                            "1 year",
+                            trainingYear.sessionsPerWeek(365, endDay).oneDecimal(),
+                            "/week",
+                            seriesPalette.calOut,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    trainingYear.averagePercentPlanned(30, endDay)?.let { average ->
+                        Spacer(Modifier.height(12.dp))
+                        Hint(
+                            "Over the last month you finished $average% of the sessions you " +
+                                "planned, on the days you recorded a figure."
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Hint(
+                        "Each figure divides trained days by the whole window, so four " +
+                            "workouts in a month reads as one a week. Missed days count as " +
+                            "missed, which is the point."
+                    )
+                }
+            }
+        }
+
+        item {
+            SectionCard(
+                title = "Log a workout",
+                subtitle = "Calories burned outside running",
+            ) {
+                Column {
                     Text(
                         "$dayTotal kcal logged on this day",
                         style = MaterialTheme.typography.titleSmall,
@@ -172,8 +308,9 @@ fun ExerciseScreen(onBack: () -> Unit) {
                     )
                     Spacer(Modifier.height(8.dp))
                     Hint(
-                        "Pick an activity chip to get a MET-based estimate, or just type " +
-                            "the number if you already know it."
+                        "Pick an activity chip for a MET-based estimate, or type the number " +
+                            "if you already know it. Saving a workout also marks the day " +
+                            "trained, unless you have already answered for that day."
                     )
                 }
             }
