@@ -1,7 +1,6 @@
 package com.aditya.stride.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -326,10 +325,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
         }
 
         item {
-            Hint(
-                "Nothing here needs daily input. Skip a day and the charts simply " +
-                    "show the gap — dashed on the weight line, absent from the bars."
-            )
+            Hint("Skip a day and the charts show the gap rather than inventing a value.")
         }
     }
 }
