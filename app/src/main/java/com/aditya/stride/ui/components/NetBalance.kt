@@ -97,61 +97,67 @@ fun NetBalanceCard(balances: Map<BalancePeriod, List<PeriodBalance>>) {
             val current = rows.firstOrNull()
             if (current == null || rows.all { it.daysLogged == 0 }) {
                 Hint("Log meals to see whether you are eating more or less than you burn.")
-                return@Column
-            }
-
-            if (current.daysLogged > 0) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        current.netKcal.signedKcal(),
-                        style = MaterialTheme.typography.displaySmall,
-                        color = netColour(current.netKcal),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "kcal",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    )
-                }
-                Text(
-                    (if (current.netKcal >= 0) "surplus " else "deficit ") +
-                        (if (period == BalancePeriod.WEEK) "this week" else "this month") +
-                        " so far  ·  ${current.daysCaption()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "${current.averageNetKcal.signedKcal()} kcal a day on average  ·  " +
-                        "about ${kgEquivalent(current.netKcal)} kg",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                )
             } else {
-                Hint(
-                    "Nothing counted " +
-                        (if (period == BalancePeriod.WEEK) "this week" else "this month") +
-                        " yet — a day is added once it is over."
+                BalanceDetail(current, rows, period)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BalanceDetail(current: PeriodBalance, rows: List<PeriodBalance>, period: BalancePeriod) {
+    Column {
+        if (current.daysLogged > 0) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    current.netKcal.signedKcal(),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = netColour(current.netKcal),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "kcal",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
-
-            Spacer(Modifier.height(16.dp))
-            val scale = rows.maxOf { abs(it.netKcal) }.coerceAtLeast(1.0)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                rows.forEachIndexed { index, row ->
-                    BalanceRow(row, row.periodLabel(period, isCurrent = index == 0), scale)
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
+            Text(
+                (if (current.netKcal >= 0) "surplus " else "deficit ") +
+                    (if (period == BalancePeriod.WEEK) "this week" else "this month") +
+                    " so far  ·  ${current.daysCaption()}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "${current.averageNetKcal.signedKcal()} kcal a day on average  ·  " +
+                    "about ${kgEquivalent(current.netKcal)} kg",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            )
+        } else {
             Hint(
-                "Burned is resting metabolism × 1.2 for ordinary daily living, plus the " +
-                    "exercise you logged — the same sum as the Today screen. Only days with " +
-                    "food logged count, and today is added once it is over, so a half-logged " +
-                    "day never reads as a deficit."
+                "Nothing counted " +
+                    (if (period == BalancePeriod.WEEK) "this week" else "this month") +
+                    " yet — a day is added once it is over."
             )
         }
+
+        Spacer(Modifier.height(16.dp))
+        val scale = rows.maxOf { abs(it.netKcal) }.coerceAtLeast(1.0)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            rows.forEachIndexed { index, row ->
+                BalanceRow(row, row.periodLabel(period, isCurrent = index == 0), scale)
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Hint(
+            "Burned is resting metabolism × 1.2 for ordinary daily living, plus the " +
+                "exercise you logged — the same sum as the Today screen. Only days with " +
+                "food logged count, and today is added once it is over, so a half-logged " +
+                "day never reads as a deficit."
+        )
     }
 }
 
