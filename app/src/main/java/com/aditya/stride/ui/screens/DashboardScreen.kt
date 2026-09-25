@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aditya.stride.data.BalancePeriod
 import com.aditya.stride.data.today
 import com.aditya.stride.data.type
 import com.aditya.stride.ui.asClock
@@ -35,6 +36,9 @@ import com.aditya.stride.ui.asTime
 import com.aditya.stride.ui.components.ChartSeries
 import com.aditya.stride.ui.components.GoalBar
 import com.aditya.stride.ui.components.Hint
+import com.aditya.stride.ui.components.daysCaption
+import com.aditya.stride.ui.components.netColour
+import com.aditya.stride.ui.components.signedKcal
 import com.aditya.stride.ui.components.ScreenFrame
 import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.SeriesKind
@@ -67,6 +71,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
     val weightDaily by vm.weightDaily.collectAsStateWithLifecycle()
     val waterDaily by vm.waterDaily.collectAsStateWithLifecycle()
     val distanceDaily by vm.distanceDaily.collectAsStateWithLifecycle()
+    val netBalance by vm.netBalance.collectAsStateWithLifecycle()
 
     val weightKg = latestWeight?.weightKg ?: profile.fallbackWeightKg
     // Resting metabolism plus ordinary daily living. Exercise you log is added on
@@ -138,6 +143,34 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                     )
                     Spacer(Modifier.height(6.dp))
                     Hint("$kcalIn of ${profile.calorieGoal} kcal daily target")
+
+                    // Running totals, so a single heavy or light day is seen in context.
+                    // Full history per week and month is on the Trends tab.
+                    val week = netBalance[BalancePeriod.WEEK]?.firstOrNull()
+                    val month = netBalance[BalancePeriod.MONTH]?.firstOrNull()
+                    if (week != null && month != null && (week.daysLogged > 0 || month.daysLogged > 0)) {
+                        Spacer(Modifier.height(16.dp))
+                        Row(Modifier.fillMaxWidth()) {
+                            StatTile(
+                                label = "This week",
+                                value = if (week.daysLogged > 0) week.netKcal.signedKcal() else "—",
+                                unit = "kcal",
+                                accent = if (week.daysLogged > 0) netColour(week.netKcal) else MaterialTheme.colorScheme.outline,
+                                caption = if (week.daysLogged > 0) week.daysCaption() else "no full day yet",
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatTile(
+                                label = "This month",
+                                value = if (month.daysLogged > 0) month.netKcal.signedKcal() else "—",
+                                unit = "kcal",
+                                accent = if (month.daysLogged > 0) netColour(month.netKcal) else MaterialTheme.colorScheme.outline,
+                                caption = if (month.daysLogged > 0) month.daysCaption() else "no full day yet",
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Hint("Net of days with food logged, up to yesterday.")
+                    }
                 }
             }
         }
@@ -274,7 +307,6 @@ fun DashboardScreen(onOpen: (String) -> Unit, onOpenSettings: () -> Unit) {
                     zeroBased = true,
                     guide = com.aditya.stride.ui.components.ChartGuide(
                         value = profile.waterGoalL,
-                        label = "target",
                         color = seriesPalette.water,
                     ),
                     defaultWindowDays = 21f,

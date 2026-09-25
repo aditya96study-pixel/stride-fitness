@@ -4,9 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aditya.stride.data.ActivityType
+import com.aditya.stride.data.BalancePeriod
 import com.aditya.stride.data.DailyValue
+import com.aditya.stride.data.EnergyBalance
 import com.aditya.stride.data.ExerciseEntry
 import com.aditya.stride.data.MealEntry
+import com.aditya.stride.data.PeriodBalance
 import com.aditya.stride.data.Profile
 import com.aditya.stride.data.Reminder
 import com.aditya.stride.data.Repository
@@ -105,6 +108,20 @@ class DashboardViewModel(app: Application) : StrideViewModel(app) {
 
     /** Whole sessions, for the filtered per-activity chart. */
     val sessions: StateFlow<List<RunSession>> = repo.runs.observeAll().state(emptyList())
+
+    /** Eaten minus burned for recent weeks and months, newest first. */
+    val netBalance: StateFlow<Map<BalancePeriod, List<PeriodBalance>>> =
+        combine(profile, calInDaily, calOutDaily, weightDaily, dayFlow) { person, eaten, active, weight, day ->
+            val eatenByDay = eaten.associate { it.epochDay to it.value }
+            val activeByDay = active.associate { it.epochDay to it.value }
+            val weightByDay = weight.associate { it.epochDay to it.value }
+            mapOf(
+                BalancePeriod.WEEK to 8,
+                BalancePeriod.MONTH to 6,
+            ).mapValues { (period, count) ->
+                EnergyBalance.periods(period, count, day, person, eatenByDay, activeByDay, weightByDay)
+            }
+        }.state(emptyMap())
 }
 
 class WeightViewModel(app: Application) : StrideViewModel(app) {

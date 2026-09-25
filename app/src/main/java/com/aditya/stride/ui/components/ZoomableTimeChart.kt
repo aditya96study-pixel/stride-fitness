@@ -55,7 +55,6 @@ import com.aditya.stride.ui.theme.seriesPalette
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 private val Y_GUTTER = 44.dp
 private val X_AXIS_HEIGHT = 22.dp
@@ -408,21 +407,34 @@ private fun DrawScope.drawChart(
     drawLine(axisColor, Offset(plotLeft, plotBottom), Offset(plotRight, plotBottom), 1.2f)
 
     // ---- x labels ----
+    // Thin the ticks by how wide the labels actually are on this screen, then skip any
+    // label that would still touch its neighbour (the 1st-and-15th ticks are unevenly
+    // spaced) or poke past the plot edge into the y labels.
     val xTicks = dateTicks(startDay, spanDays)
-    val maxLabels = (plotWidth / 62f).toInt().coerceAtLeast(2)
-    val stride = (xTicks.size / maxLabels.toFloat()).let { if (it <= 1f) 1 else it.roundToInt() }
-    xTicks.filterIndexed { index, _ -> index % stride == 0 }.forEach { (day, label) ->
-        val x = xOf(day)
-        if (x < plotLeft - 20 || x > plotRight + 20) return@forEach
+    val xLayouts = xTicks.ticks.map { measurer.measure(it.label, axisLabelStyle) }
+    val labelGapPx = 10.dp.toPx()
+    val stride = labelStride(
+        tickPitchPx = xTicks.minPitchDays / spanDays * plotWidth,
+        widestLabelPx = xLayouts.maxOfOrNull { it.size.width }?.toFloat() ?: 0f,
+        gapPx = labelGapPx,
+    )
+    var lastLabelRight = Float.NEGATIVE_INFINITY
+    xTicks.ticks.forEachIndexed { index, tick ->
+        if (Math.floorMod(tick.ordinal, stride.toLong()) != 0L) return@forEachIndexed
+        val x = xOf(tick.day)
+        if (x < plotLeft || x > plotRight) return@forEachIndexed
         drawLine(
             gridColor.copy(alpha = 0.55f),
             Offset(x, plotTop),
             Offset(x, plotBottom),
             strokeWidth = 1f,
         )
-        val layout = measurer.measure(label, axisLabelStyle)
-        val lx = (x - layout.size.width / 2f).coerceIn(2f, size.width - layout.size.width - 2f)
+        val layout = xLayouts[index]
+        val lx = x - layout.size.width / 2f
+        val fits = lx >= plotLeft && lx + layout.size.width <= plotRight
+        if (!fits || lx < lastLabelRight + labelGapPx) return@forEachIndexed
         drawText(layout, topLeft = Offset(lx, plotBottom + 5f))
+        lastLabelRight = lx + layout.size.width
     }
 
     // ---- goal / reference line ----
@@ -435,14 +447,6 @@ private fun DrawScope.drawChart(
                 end = Offset(plotRight, y),
                 strokeWidth = 1.4f,
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)),
-            )
-            val layout = measurer.measure(
-                g.label,
-                axisLabelStyle.copy(color = g.color, fontSize = 10.sp),
-            )
-            drawText(
-                layout,
-                topLeft = Offset(plotRight - layout.size.width - 4f, y - layout.size.height - 3f),
             )
         }
     }

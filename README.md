@@ -80,6 +80,11 @@ where burned is your resting metabolism (Mifflin–St Jeor) times 1.2 for ordina
 daily living, plus exercise you actually logged. Exercise is never double-counted
 through an activity multiplier.
 
+The same sum, added up per week and per month, is on the Trends tab as **Net
+calories**, with this week and this month on the Today screen too. Only days with
+food logged count — an unlogged day is not a day you ate nothing — and today is
+added once it is over, so a half-logged day never reads as a deficit.
+
 **Reminders.** Set as many as you like, each with its own time, days of the week
 and subject. They are ordinary alarms — the app is not resident between them — and
 tapping one opens the matching logging screen.

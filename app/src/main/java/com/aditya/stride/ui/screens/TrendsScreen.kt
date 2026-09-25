@@ -20,6 +20,7 @@ import com.aditya.stride.ui.components.ChartSeries
 import com.aditya.stride.ui.components.activitySeries
 import com.aditya.stride.ui.components.describe
 import com.aditya.stride.ui.components.Hint
+import com.aditya.stride.ui.components.NetBalanceCard
 import com.aditya.stride.ui.components.ScreenFrame
 import com.aditya.stride.ui.components.SectionCard
 import com.aditya.stride.ui.components.SeriesKind
@@ -41,6 +42,7 @@ fun TrendsScreen(onOpenSettings: () -> Unit) {
     val calOut by vm.calOutDaily.collectAsStateWithLifecycle()
     val waterDaily by vm.waterDaily.collectAsStateWithLifecycle()
     val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val netBalance by vm.netBalance.collectAsStateWithLifecycle()
 
     // Per-screen, deliberately: the filter on Trends and the one on the history list are
     // independent, which is more useful than pretending they are the same control.
@@ -81,17 +83,15 @@ fun TrendsScreen(onOpenSettings: () -> Unit) {
                     valueLabel = { it.roundToInt().toString() },
                     unitSuffix = " kcal",
                     zeroBased = true,
-                    guide = ChartGuide(
-                        profile.calorieGoal.toDouble(),
-                        "intake target",
-                        seriesPalette.calIn,
-                    ),
+                    guide = ChartGuide(profile.calorieGoal.toDouble(), seriesPalette.calIn),
                     chartHeight = 300.dp,
                     defaultWindowDays = 30f,
                     emptyMessage = "Log meals or workouts to fill this in",
                 )
             }
         }
+
+        item { NetBalanceCard(netBalance) }
 
         item {
             SectionCard(title = "Water", subtitle = "Litres per day") {
@@ -100,7 +100,7 @@ fun TrendsScreen(onOpenSettings: () -> Unit) {
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " L",
                     zeroBased = true,
-                    guide = ChartGuide(profile.waterGoalL, "target", seriesPalette.water),
+                    guide = ChartGuide(profile.waterGoalL, seriesPalette.water),
                     chartHeight = 280.dp,
                     defaultWindowDays = 30f,
                     emptyMessage = "No water logged yet",

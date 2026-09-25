@@ -147,7 +147,7 @@ fun WaterScreen(onBack: () -> Unit) {
                     valueLabel = { it.oneDecimal() },
                     unitSuffix = " L",
                     zeroBased = true,
-                    guide = ChartGuide(profile.waterGoalL, "target", seriesPalette.water),
+                    guide = ChartGuide(profile.waterGoalL, seriesPalette.water),
                     chartHeight = 260.dp,
                     defaultWindowDays = 28f,
                     emptyMessage = "Add water to start the chart",

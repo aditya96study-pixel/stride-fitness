@@ -173,11 +173,7 @@ fun FoodScreen(onBack: () -> Unit) {
                     valueLabel = { it.roundToInt().toString() },
                     unitSuffix = " kcal",
                     zeroBased = true,
-                    guide = ChartGuide(
-                        profile.calorieGoal.toDouble(),
-                        "target",
-                        seriesPalette.calIn,
-                    ),
+                    guide = ChartGuide(profile.calorieGoal.toDouble(), seriesPalette.calIn),
                     chartHeight = 260.dp,
                     defaultWindowDays = 21f,
                     emptyMessage = "Add a meal to start the chart",
